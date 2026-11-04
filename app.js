@@ -83,16 +83,40 @@ function renderMixer() {
   }
 }
 
-function setSound(on) {
-  if (!Sound.setEnabled(on)) {
-    $("mixNote").textContent = "This browser can’t play generated sound";
-    return;
-  }
+// Sound is on by default. Browsers only allow audio after the visitor's first
+// click or key press, so it starts then. Turning it off is remembered.
+let soundWanted = settings.sound !== false;
+
+function showSound(on) {
   $("soundToggle").setAttribute("aria-pressed", String(on));
   $("soundLabel").textContent = on ? "Sound on" : "Sound off";
   $("mixNote").textContent = on ? "Mix your own background" : "Turn sound on to listen";
 }
-$("soundToggle").addEventListener("click", () => setSound(!Sound.enabled));
+
+function setSound(on) {
+  soundWanted = on;
+  settings.sound = on;
+  store.set("settings", settings);
+  if (!Sound.setEnabled(on)) {
+    $("mixNote").textContent = "This browser can’t play generated sound";
+    return;
+  }
+  showSound(on);
+}
+$("soundToggle").addEventListener("click", () => setSound(!soundWanted));
+
+function startSoundOnFirstTouch() {
+  const go = (e) => {
+    window.removeEventListener("pointerdown", go, true);
+    window.removeEventListener("keydown", go, true);
+    if (e.target.closest && e.target.closest("#soundToggle")) return; // the button handles itself
+    if (soundWanted) Sound.setEnabled(true);
+  };
+  window.addEventListener("pointerdown", go, true);
+  window.addEventListener("keydown", go, true);
+}
+showSound(soundWanted);
+if (soundWanted) startSoundOnFirstTouch();
 
 // ---------- drawers (only one open at a time) ----------
 const DRAWERS = { panel: "panelBtn", filesPanel: "filesBtn" };
@@ -168,9 +192,17 @@ $("avatarSave").addEventListener("click", () => {
     $("avatarName").placeholder = "Add a name first";
     return;
   }
+  if (draft.name.toLowerCase() === "ushain") {
+    $("avatarName").value = "";
+    draft.name = "";
+    $("avatarName").placeholder = "Ushain is Nook’s host. Pick another name";
+    $("avatarName").focus();
+    return;
+  }
   look = { ...draft };
   store.set("look", look);
   World.setLook(look);
+  document.dispatchEvent(new CustomEvent("nook:look", { detail: look }));
   $("avatarCard").hidden = true;
   if (firstVisitPending) {
     firstVisitPending = false;
@@ -218,6 +250,13 @@ function fmt(sec) {
   return String(m).padStart(2, "0") + ":" + String(s).padStart(2, "0");
 }
 
+// tell the rest of Nook (and other students) what your timer is doing
+function announceTimer() {
+  document.dispatchEvent(new CustomEvent("nook:timer", {
+    detail: { mode: timer.running ? timer.mode : null, endAt: timer.running ? timer.endAt : null },
+  }));
+}
+
 function renderTimer() {
   $("time").textContent = fmt(timer.remaining);
   $("startBtn").textContent = timer.running ? "Pause" : timer.remaining < lengthOf(timer.mode) ? "Resume" : "Start";
@@ -254,6 +293,7 @@ function start() {
   if (timer.mode === "focus" && !World.seated) toast("Tip: sit at a desk so others can see you studying.");
   keepAwake(true);
   renderTimer();
+  announceTimer();
 }
 
 function pause() {
@@ -263,6 +303,7 @@ function pause() {
   $("status").textContent = "Paused.";
   keepAwake(false);
   renderTimer();
+  announceTimer();
 }
 
 function setMode(mode) {
@@ -270,6 +311,7 @@ function setMode(mode) {
   timer.mode = mode;
   timer.remaining = lengthOf(mode);
   renderTimer();
+  announceTimer();
 }
 
 function tick() {

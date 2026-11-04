@@ -15,7 +15,7 @@ A cozy virtual library for IUB students. Make an avatar, walk in, pick a desk, a
 - Today's task list
 - Daily focus minutes, sessions and day streak
 - Keyboard: arrows/WASD walk, `E` sit/stand, `Space` start/pause timer, `R` reset
-- Saves settings, avatar, tasks and stats in the browser (localStorage). Shared files stay in this browser until Phase 2
+- Saves settings, avatar, tasks and stats in the browser (localStorage)
 
 ## Run it
 Open `index.html` in a browser. No install or build step needed.
@@ -26,6 +26,10 @@ Open `index.html` in a browser. No install or build step needed.
 | `index.html` | Page structure |
 | `style.css` | Look and layout; colours change per scene |
 | `world.js` | Draws the library, characters and lighting; handles walking and sitting |
+| `config.js` | Supabase project address and public key |
+| `net.js` | Talks to Supabase: sign-in, presence, movement, shared files |
+| `online.js` | Connects the library to the network (falls back to solo mode) |
+| `supabase/setup.sql` | Database tables, file bucket and security rules. Run once in the Supabase SQL Editor |
 | `audio.js` | Generates the ambient sounds and the end-of-session chime |
 | `app.js` | Timer, scenes, avatar editor, sound mixer, tasks, stats |
 | `controls.js` | Keyboard, joystick and Sit button |
@@ -33,11 +37,11 @@ Open `index.html` in a browser. No install or build step needed.
 
 ## Roadmap
 - [x] Phase 1: Library, avatars, timer, ambient sounds
-- [ ] Phase 2: Google sign-in + live rooms (see who is studying right now) with Firebase
+- [x] Phase 2: Live library with Supabase: see other students walk, sit and study in real time; files and notes really reach the people they're shared with
 - [ ] Phase 3: IUB-only sign-up, course rooms (CSE 317, CSE 451…), streak leaderboard, chat
 - [ ] Phase 4: Deploy on Netlify, polish, test on phones
 
 ## Tech
-HTML, CSS, JavaScript (no frameworks), Canvas 2D, Web Audio API.
+HTML, CSS, JavaScript (no frameworks), Canvas 2D, Web Audio API, Supabase (Postgres, Realtime, Storage, row level security).
 
 Built by Sadman Mahmood.

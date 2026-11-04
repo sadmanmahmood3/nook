@@ -11,7 +11,7 @@ const World = (() => {
   // ---------- looks ----------
   const SKINS = ["#f6d7bd", "#e8b98f", "#c98e5f", "#9a6440", "#6e4428"];
   const HAIR_COLORS = ["#1f1a17", "#4a2f20", "#8a5a33", "#2f3e5c", "#8a3b4a", "#d8c7b0"];
-  const SHIRTS = ["#e0793f", "#3f7f8c", "#6c5aa6", "#d4b14a", "#4f7a52", "#c2525c"];
+  const SHIRTS = ["#e0793f", "#3f7f8c", "#6c5aa6", "#d4b14a", "#4f7a52", "#c2525c", "#2c3e66"];
   const HAIRSTYLES = ["short", "long", "bun", "hijab"];
 
   const ROOM = {
@@ -117,6 +117,16 @@ const World = (() => {
     c.left = 300 + Math.floor(rnd() * 1200); // seconds left on their timer
     return c;
   });
+
+  // Ushain: Nook's host. Always in the library, even after real students arrive.
+  const ushain = makeChar({ name: "Ushain", skin: 2, hair: "short", hairColor: 0, shirt: 6, headphones: true }, { id: "ushain", item: "laptop" });
+  {
+    const d = desks[2];
+    ushain.x = d.x; ushain.y = d.seatY; ushain.state = "sit"; ushain.seated = d; d.occupant = ushain;
+    ushain.left = 1100;
+    ushain.host = true;
+    bots.push(ushain); // studies with a timer like the others, but has no "bot" tag
+  }
 
   const librarian = makeChar({ name: "Librarian", skin: 0, hair: "bun", hairColor: 5, shirt: 4 }, { bot: true });
   librarian.x = 110; librarian.y = 490;
@@ -256,7 +266,7 @@ const World = (() => {
       c.path.shift();
       if (p.sit) {
         c.state = "sit"; c.seated = p.sit; c.reserve = null;
-        if (c === player) emit("sit", p.sit);
+        if (c === player) { player.sitAt = Date.now(); emit("sit", p.sit); }
       }
     } else {
       c.x += (dx / d) * speed;
@@ -307,6 +317,16 @@ const World = (() => {
     g.beginPath(); g.ellipse(hx - 13, hy + 10, 4, 2.5, 0, 0, Math.PI * 2); g.ellipse(hx + 13, hy + 10, 4, 2.5, 0, 0, Math.PI * 2); g.fill();
     g.strokeStyle = "#5b3a2e"; g.lineWidth = 1.6;
     g.beginPath(); g.arc(hx, hy + 9, 3.5, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke();
+    if (look.headphones) {
+      g.strokeStyle = "#2a2b33"; g.lineWidth = 4;
+      g.beginPath(); g.arc(hx, hy - 2, 25, Math.PI * 1.08, Math.PI * 1.92); g.stroke();
+      g.fillStyle = "#2a2b33";
+      rrect(g, hx - 29, hy - 6, 9, 17, 4); g.fill();
+      rrect(g, hx + 20, hy - 6, 9, 17, 4); g.fill();
+      g.fillStyle = "#e0793f";
+      rrect(g, hx - 28, hy - 2, 3, 9, 1.5); g.fill();
+      rrect(g, hx + 25, hy - 2, 3, 9, 1.5); g.fill();
+    }
   }
 
   function shade(hex, amt) {
@@ -721,7 +741,7 @@ const World = (() => {
       const k = depth(c.y);
       const top = c.state === "sit" ? c.y - 112 * k : c.y - 130 * k;
       const isMe = c === player;
-      pill(c.look.name || "You", c.x, top, isMe ? accent : "rgba(255,255,255,0.88)", isMe ? accentInk : "#22302a", c.bot ? "bot" : null);
+      pill(c.look.name || "You", c.x, top, isMe ? accent : "rgba(255,255,255,0.88)", isMe ? accentInk : "#22302a", c.bot && !c.host ? "bot" : null);
       if (c.timer) pill(c.timer, c.x, top - 24, "rgba(20,24,30,0.78)", "#ffffff", null);
     }
     if (near && !player.seated && !player.reserve) {
@@ -806,6 +826,7 @@ const World = (() => {
   function update(dt, t) {
     moveByInput(dt);
     for (const c of chars) step(c, dt);
+    updateRemotes(dt);
     findNear();
     // librarian wanders between shelves
     if (!librarian.path.length) {
@@ -905,6 +926,144 @@ const World = (() => {
 
   window.addEventListener("resize", resize);
 
+  // ---------- real students (from the network) ----------
+  const remotes = new Map();
+  const extraBots = bots.filter((b) => !b.host); // the 4 bots who step aside for real people
+  let botsShown = true;
+
+  function cleanLook(l) {
+    l = l || {};
+    let name = String(l.name || "Student").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 16) || "Student";
+    if (name.toLowerCase() === "ushain") name = "Student"; // only the host is Ushain
+    const idx = (v, n) => (Number.isInteger(v) && v >= 0 && v < n ? v : 0);
+    return {
+      name,
+      skin: idx(l.skin, SKINS.length),
+      hair: HAIRSTYLES.includes(l.hair) ? l.hair : "short",
+      hairColor: idx(l.hairColor, HAIR_COLORS.length),
+      shirt: idx(l.shirt, SHIRTS.length),
+    };
+  }
+
+  function standRemote(c) {
+    if (!c.seated) return;
+    const d = c.seated;
+    if (d.occupant === c) d.occupant = null;
+    c.seated = null;
+    c.state = "stand";
+    const a = approach(d);
+    c.x = c.tx = a.x; c.y = c.ty = a.y;
+  }
+
+  // the full list of people in the room, from presence
+  function syncRemotes(list) {
+    const seen = new Set();
+    for (const p of list) {
+      if (!p || !p.id) continue;
+      seen.add(p.id);
+      let c = remotes.get(p.id);
+      if (!c) {
+        c = makeChar(cleanLook(p.look), { id: p.id, item: "laptop" });
+        c.remote = true;
+        c.x = c.tx = Number.isFinite(p.x) ? p.x : 800;
+        c.y = c.ty = Number.isFinite(p.y) ? p.y : 884;
+        if (blocked(c.x, c.y) && !Number.isInteger(p.deskId)) { c.x = c.tx = 800; c.y = c.ty = 884; }
+        remotes.set(p.id, c);
+        chars.push(c);
+      }
+      c.look = cleanLook(p.look);
+      c.mode = p.mode === "focus" || p.mode === "break" ? p.mode : null;
+      c.timerEnd = Number(p.timerEnd) || 0;
+      c.sitAt = Number(p.sitAt) || 0;
+
+      const want = Number.isInteger(p.deskId) && desks[p.deskId] ? desks[p.deskId] : null;
+      if (c.seated && c.seated !== want) standRemote(c);
+      if (want && c.seated !== want) {
+        const o = want.occupant;
+        if (o && o !== c) {
+          if (o === player) {
+            // two people took the same chair: whoever sat down first keeps it
+            const mineFirst = player.seated === want && player.sitAt && (!c.sitAt || player.sitAt <= c.sitAt);
+            if (mineFirst) continue;
+            leaveSpot(player);
+            emit("bumped");
+          } else if (o.bot && !o.host) {
+            hideBot(o);
+          } else if (o.remote) {
+            if (c.sitAt >= o.sitAt) continue;
+            standRemote(o);
+          } else continue;
+        }
+        if (player.reserve === want) { leaveSpot(player); emit("bumped"); }
+        want.occupant = c;
+        c.seated = want;
+        c.state = "sit";
+        c.x = c.tx = want.x;
+        c.y = c.ty = want.seatY;
+      }
+      if (!c.seated && Number.isFinite(p.x) && !c.walking) { c.tx = p.x; c.ty = p.y; }
+    }
+    for (const [id, c] of remotes) {
+      if (seen.has(id)) continue;
+      standRemote(c);
+      remotes.delete(id);
+      const i = chars.indexOf(c);
+      if (i >= 0) chars.splice(i, 1);
+    }
+    // bots keep the room lively until 3 real students are here
+    setBotsShown(remotes.size < 3);
+  }
+
+  function remotePos(id, x, y, moving) {
+    const c = remotes.get(id);
+    if (!c || c.seated || !Number.isFinite(x) || !Number.isFinite(y)) return;
+    c.tx = clamp(x, 60, WW - 60);
+    c.ty = clamp(y, FLOOR_TOP, FLOOR_BOTTOM);
+    c.walking = !!moving;
+  }
+
+  function updateRemotes(dt) {
+    const now = Date.now();
+    for (const c of remotes.values()) {
+      if (!c.seated) {
+        const dx = c.tx - c.x, dy = c.ty - c.y, d = Math.hypot(dx, dy);
+        if (d > 600) { c.x = c.tx; c.y = c.ty; }
+        else if (d > 1.5) {
+          const sp = Math.min(d, 230 * dt);
+          c.x += (dx / d) * sp; c.y += (dy / d) * sp;
+          c.state = "walk"; c.phase += dt * 11;
+          if (Math.abs(dx) > 0.5) c.dir = dx > 0 ? 1 : -1;
+        } else if (c.state === "walk") c.state = "stand";
+      }
+      if (c.mode === "focus" && c.timerEnd > now) {
+        const left = Math.ceil((c.timerEnd - now) / 1000);
+        c.timer = String(Math.floor(left / 60)).padStart(2, "0") + ":" + String(left % 60).padStart(2, "0");
+      } else if (c.mode === "break") c.timer = "on a break";
+      else c.timer = null;
+      c.studying = !!c.seated && c.mode === "focus";
+    }
+  }
+
+  function hideBot(b) {
+    if (b.seated && b.seated.occupant === b) b.seated.occupant = null;
+    b.hiddenDesk = b.seated || b.hiddenDesk;
+    b.seated = null;
+    const i = chars.indexOf(b);
+    if (i >= 0) chars.splice(i, 1);
+  }
+  function showBot(b) {
+    const d = b.hiddenDesk || b.seated;
+    if (!d || d.occupant || chars.includes(b)) return;
+    d.occupant = b; b.seated = d; b.state = "sit";
+    b.x = d.x; b.y = d.seatY;
+    chars.push(b);
+  }
+  function setBotsShown(show) {
+    if (show === botsShown) return;
+    botsShown = show;
+    for (const b of extraBots) (show ? showBot : hideBot)(b);
+  }
+
   // ---------- public API ----------
   function start() {
     resize();
@@ -940,10 +1099,22 @@ const World = (() => {
     },
     setInput(x, y) { input.x = x; input.y = y; },
     people() {
-      return chars.filter((c) => c !== player).map((c) => ({ id: c.id, name: c.look.name, bot: c.bot }));
+      // Ushain is the host, not a person you can send private files to
+      return chars.filter((c) => c !== player && !c.host).map((c) => ({ id: c.id, name: c.look.name, bot: c.bot, real: !!c.remote }));
     },
     nameOf(id) { const c = chars.find((x) => x.id === id); return c ? c.look.name : "Someone"; },
-    setFileCounts(map) { for (const c of chars) c.files = map[c.id] || 0; },
+    setFileCounts(map) { for (const c of [...chars, ...extraBots]) c.files = map[c.id] || 0; },
+    syncRemotes,
+    remotePos,
+    playerState() {
+      return {
+        x: Math.round(player.x), y: Math.round(player.y),
+        deskId: player.seated ? player.seated.id : null,
+        sitAt: player.seated ? player.sitAt || null : null,
+        moving: player.state === "walk",
+      };
+    },
+    get realCount() { return remotes.size; },
     get seated() { return player.seated; },
     get isTouch() { return isTouch; },
     drawPreview(el, look) {
