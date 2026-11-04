@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en" data-scene="morning">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Nook Study Lounge</title>
+  <meta name="description" content="A cozy virtual study room for IUB students: focus timer, ambient sounds and a daily task list.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=Figtree:wght@400;500;600;700&display=swap">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="scene" aria-hidden="true"></canvas>
+
+  <div class="app">
+    <header class="top">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <div class="brand-text">
+          <strong>Nook</strong>
+          <small>IUB study lounge</small>
+        </div>
+      </div>
+
+      <nav class="scenes" aria-label="Choose a scene">
+        <button type="button" class="chip" id="scene-morning" data-scene="morning">Morning</button>
+        <button type="button" class="chip" id="scene-rain" data-scene="rain">Rainy</button>
+        <button type="button" class="chip" id="scene-night" data-scene="night">Night</button>
+        <button type="button" class="chip" id="scene-cafe" data-scene="cafe">Café</button>
+      </nav>
+
+      <button type="button" class="sound-toggle" id="soundToggle" aria-pressed="false">
+        <span class="sound-icon" aria-hidden="true"></span>
+        <span id="soundLabel">Sound off</span>
+      </button>
+    </header>
+
+    <main class="stage">
+      <section class="timer-card" aria-label="Study timer">
+        <div class="modes" role="group" aria-label="Timer mode">
+          <button type="button" class="mode" id="mode-focus" data-mode="focus">Focus</button>
+          <button type="button" class="mode" id="mode-short" data-mode="short">Short break</button>
+          <button type="button" class="mode" id="mode-long" data-mode="long">Long break</button>
+        </div>
+
+        <div class="time" id="time">25:00</div>
+        <p class="status" id="status">Pick a scene, then press Start.</p>
+
+        <div class="controls">
+          <button type="button" class="btn primary" id="startBtn">Start</button>
+          <button type="button" class="btn" id="resetBtn">Reset</button>
+          <button type="button" class="btn" id="skipBtn">Skip</button>
+        </div>
+
+        <div class="lengths" role="group" aria-label="Focus length">
+          <span class="label">Focus length</span>
+          <button type="button" class="len" id="len-25" data-len="25">25 min</button>
+          <button type="button" class="len" id="len-50" data-len="50">50 min</button>
+          <button type="button" class="len" id="len-90" data-len="90">90 min</button>
+        </div>
+
+        <div class="round">
+          <ol class="dots" id="dots" aria-label="Focus sessions this round"></ol>
+          <span class="round-label" id="roundLabel">Long break after 4 sessions</span>
+        </div>
+
+        <p class="hint"><kbd>Space</kbd> start or pause &nbsp;·&nbsp; <kbd>R</kbd> reset</p>
+      </section>
+
+      <aside class="panel">
+        <section class="block" aria-labelledby="mixTitle">
+          <div class="block-head">
+            <h2 id="mixTitle">Sounds</h2>
+            <span class="note" id="mixNote">Turn sound on to listen</span>
+          </div>
+          <div class="mixer" id="mixer"></div>
+        </section>
+
+        <section class="block" aria-labelledby="taskTitle">
+          <div class="block-head">
+            <h2 id="taskTitle">Today’s tasks</h2>
+            <span class="note" id="taskCount"></span>
+          </div>
+          <form class="task-form" id="taskForm">
+            <label class="sr" for="taskInput">New task</label>
+            <input id="taskInput" type="text" maxlength="80" placeholder="e.g. CSE 317 – Newton-Raphson problems" autocomplete="off">
+            <button type="submit" class="btn small">Add</button>
+          </form>
+          <ul class="tasks" id="taskList"></ul>
+        </section>
+
+        <section class="block" aria-labelledby="statTitle">
+          <div class="block-head">
+            <h2 id="statTitle">Your study</h2>
+          </div>
+          <dl class="stats">
+            <div><dt>Focus today</dt><dd id="statMin">0 min</dd></div>
+            <div><dt>Sessions</dt><dd id="statSessions">0</dd></div>
+            <div><dt>Day streak</dt><dd id="statStreak">0</dd></div>
+          </dl>
+        </section>
+      </aside>
+    </main>
+  </div>
+
+  <script src="audio.js"></script>
+  <script src="scene.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
