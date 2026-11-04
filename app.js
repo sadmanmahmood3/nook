@@ -139,7 +139,7 @@ function start() {
   timer.endAt = Date.now() + timer.remaining * 1000;
   timer.running = true;
   timer.handle = setInterval(tick, 250);
-  $("status").textContent = timer.mode === "focus" ? "Focusing. Phone face down." : "On a break. Stretch, drink water.";
+  $("status").textContent = timer.mode === "focus" ? "Locked in. Notifications off." : "Break time. Look away from the screen.";
   keepAwake(true);
   renderTimer();
 }
