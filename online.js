@@ -53,6 +53,12 @@
   const urlError = signInError();
   const res = await Net.start({ look: look(), ...World.playerState(), timerEnd: null, mode: null });
   if (res.status === "offline") return; // no internet or not set up: solo mode
+  if (res.status === "blocked") {
+    $("loginScreen").hidden = false;
+    $("googleBtn").hidden = true;
+    $("loginError").textContent = "Your access to Nook has been paused by the admin. Email iubnook@gmail.com if you think this is a mistake.";
+    return;
+  }
   if (res.status === "login") {
     $("loginError").textContent = urlError || res.error || "";
     $("loginScreen").hidden = false;
@@ -62,6 +68,8 @@
   // signed in with an IUB account
   const user = Net.user;
   showSignedIn(user.email);
+  if (Net.admin) $("adminBtn").hidden = false;
+  Net.cleanupMine().catch(() => { /* try again next time */ });
   if (!store.get("look", null)) {
     // first time: fill in their first name from Google
     const full = (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)) || "";

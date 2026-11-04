@@ -16,6 +16,7 @@ const Net = (() => {
 
   const DOMAIN = String(cfg.domain || "iub.edu.bd").toLowerCase();
   let user = null;
+  let admin = false;
 
   function client() {
     if (!sb) sb = window.supabase.createClient(cfg.url, cfg.key);
@@ -37,6 +38,9 @@ const Net = (() => {
       }
       user = session.user;
       me = user.id;
+      const { data: st } = await sb.rpc("my_status");
+      if (st && st.blocked) return { status: "blocked" };
+      admin = !!(st && st.admin);
       state = { ...initial, id: me };
       joinRoom();
       await loadShares();
@@ -171,8 +175,69 @@ const Net = (() => {
     joinRoom();
   }
 
+  // ---------- reports and cleanup ----------
+  async function report(shareId, reason) {
+    const { error } = await sb.from("reports").insert({ share_id: shareId, reason });
+    if (error && error.code !== "23505") throw error; // 23505 = already reported
+  }
+
+  // delete your own shares older than 30 days
+  async function cleanupMine() {
+    const cutoff = new Date(Date.now() - 30 * 864e5).toISOString();
+    const { data } = await sb.from("shares").select("id, path").eq("from_id", me).lt("created_at", cutoff);
+    if (!data || !data.length) return;
+    const paths = data.map((r) => r.path).filter(Boolean);
+    if (paths.length) await sb.storage.from(BUCKET).remove(paths);
+    await sb.from("shares").delete().in("id", data.map((r) => r.id));
+  }
+
+  // ---------- admin ----------
+  const Admin = {
+    async reports() {
+      const { data, error } = await sb.from("reports")
+        .select("id, reason, created_at, sender_email, share_id, shares(id, kind, name, note, path, size, mime, from_name, created_at, hidden)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    async dismiss(shareId) {
+      const { error } = await sb.from("reports").delete().eq("share_id", shareId);
+      if (error) throw error;
+      await sb.from("shares").update({ hidden: false }).eq("id", shareId);
+    },
+    remove: (id, path) => unshare(id, path),
+    async blocked() {
+      const { data, error } = await sb.from("blocked").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    async block(email, reason) {
+      const { error } = await sb.from("blocked").insert({ email: String(email).toLowerCase(), reason });
+      if (error && error.code !== "23505") throw error;
+    },
+    async unblock(email) {
+      const { error } = await sb.from("blocked").delete().eq("email", email);
+      if (error) throw error;
+    },
+    async storage() {
+      const { data, error } = await sb.rpc("storage_used");
+      if (error) throw error;
+      return data;
+    },
+    async cleanupOld() {
+      const { data, error } = await sb.rpc("old_share_paths", { n_days: 30 });
+      if (error) throw error;
+      const paths = (data || []).map((r) => r.path).filter(Boolean);
+      for (let i = 0; i < paths.length; i += 100) await sb.storage.from(BUCKET).remove(paths.slice(i, i + 100));
+      const res = await sb.rpc("delete_old_shares", { n_days: 30 });
+      if (res.error) throw res.error;
+      return res.data;
+    },
+  };
+
   return {
-    start, on, update, sendPos, leave, rejoin, signIn, signOut,
+    start, on, update, sendPos, leave, rejoin, signIn, signOut, report, cleanupMine, Admin,
+    get admin() { return admin; },
     get user() { return user; },
     get domain() { return DOMAIN; },
     shareNote, shareFile, download, unshare,

@@ -385,7 +385,7 @@ document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", ()
 
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
-    document.querySelectorAll(".share-card, .view-card").forEach((c) => { c.hidden = true; });
+    document.querySelectorAll(".share-card, .view-card, .report-card, .admin-card").forEach((c) => { c.hidden = true; });
   }
   if (e.target.closest("input, textarea, select") || modalOpen()) {
     if (e.key === "Escape" && !$("avatarCard").hidden && !firstVisitPending) $("avatarCard").hidden = true;

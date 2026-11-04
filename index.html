@@ -34,6 +34,7 @@
       </nav>
 
       <div class="top-actions">
+        <button type="button" class="pill-btn admin-btn" id="adminBtn" hidden>Admin</button>
         <button type="button" class="pill-btn" id="avatarBtn"><span class="wide">My </span>avatar</button>
         <button type="button" class="pill-btn" id="filesBtn" aria-expanded="false" aria-controls="filesPanel"><span class="wide">Shared </span>files<span class="count" id="filesCount"></span></button>
         <button type="button" class="pill-btn" id="panelBtn" aria-expanded="false" aria-controls="panel">Sounds<span class="wide"> &amp; tasks</span></button>
@@ -224,6 +225,42 @@
       </div>
     </div>
 
+    <form class="avatar-card report-card" id="reportCard" role="dialog" aria-labelledby="reportTitle" hidden>
+      <div class="avatar-head">
+        <h2 id="reportTitle">Report this file</h2>
+        <p id="reportWhat"></p>
+      </div>
+      <fieldset class="reasons">
+        <legend class="label">What’s wrong with it?</legend>
+        <label><input type="radio" name="reason" value="not-study" checked> It isn’t study material</label>
+        <label><input type="radio" name="reason" value="offensive"> It’s offensive or inappropriate</label>
+        <label><input type="radio" name="reason" value="copyright"> It shouldn’t be shared (copyright, exam answers, personal info)</label>
+        <label><input type="radio" name="reason" value="spam"> It’s spam</label>
+        <label><input type="radio" name="reason" value="other"> Something else</label>
+      </fieldset>
+      <p class="fine">Reports are private. After 3 students report a file it’s hidden until the admin checks it.</p>
+      <div class="avatar-actions">
+        <button type="button" class="btn" id="reportCancel">Cancel</button>
+        <button type="submit" class="btn primary" id="reportSubmit">Send report</button>
+      </div>
+    </form>
+
+    <div class="avatar-card admin-card" id="adminCard" role="dialog" aria-labelledby="adminTitle" hidden>
+      <div class="admin-top">
+        <div class="avatar-head">
+          <h2 id="adminTitle">Admin</h2>
+          <p>Only you can see this.</p>
+        </div>
+        <button type="button" class="drawer-close" id="adminClose" aria-label="Close admin">×</button>
+      </div>
+      <div class="segmented" role="group" aria-label="Admin sections">
+        <button type="button" class="seg" id="tab-reports" data-tab="reports" aria-pressed="true">Reports</button>
+        <button type="button" class="seg" id="tab-blocked" data-tab="blocked" aria-pressed="false">Blocked</button>
+        <button type="button" class="seg" id="tab-storage" data-tab="storage" aria-pressed="false">Storage</button>
+      </div>
+      <div class="admin-body" id="adminBody"></div>
+    </div>
+
     <div class="leave-screen login-screen" id="loginScreen" hidden>
       <div class="leave-card">
         <span class="brand-mark big" aria-hidden="true"></span>
@@ -258,6 +295,7 @@
   <script src="app.js"></script>
   <script src="share.js"></script>
   <script src="controls.js"></script>
+  <script src="admin.js"></script>
   <script src="online.js"></script>
 </body>
 </html>

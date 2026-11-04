@@ -172,6 +172,7 @@ const Share = (() => {
       button("Open", () => openItem(it));
       button("Save", () => saveItem(it));
       if (it.from === "me") button("Remove", (e) => removeItem(it, e.currentTarget));
+      else if (it.remote) button("Report", () => openReport(it)).classList.add("quiet");
 
       li.append(badge, main, actions);
       list.appendChild(li);
@@ -248,6 +249,34 @@ const Share = (() => {
       toast("Couldn’t remove it. Try again.");
     }
   }
+
+  // ---------- reporting ----------
+  let reporting = null;
+  function openReport(it) {
+    reporting = it;
+    $("reportWhat").textContent = `“${it.name}” from ${fromLabel(it)}`;
+    $("reportSubmit").disabled = false;
+    $("reportSubmit").textContent = "Send report";
+    $("reportCard").reset();
+    $("reportCard").hidden = false;
+  }
+  $("reportCancel").addEventListener("click", () => { $("reportCard").hidden = true; });
+  $("reportCard").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!reporting) return;
+    const reason = new FormData($("reportCard")).get("reason") || "other";
+    $("reportSubmit").disabled = true;
+    $("reportSubmit").textContent = "Sending…";
+    try {
+      await Net.report(reporting.id, reason);
+      remove(reporting.id); // hide it for you straight away
+      $("reportCard").hidden = true;
+      toast("Thanks. The report went to Nook’s admin.");
+    } catch {
+      $("reportSubmit").disabled = false;
+      $("reportSubmit").textContent = "Try again";
+    }
+  });
 
   $("viewClose").addEventListener("click", () => { $("viewCard").hidden = true; });
   $("viewSave").addEventListener("click", () => { if (viewing) saveItem(viewing); });
@@ -427,5 +456,5 @@ const Share = (() => {
     ].join("\n"),
   });
 
-  return { openShare };
+  return { openShare, fromRow, openItem: (it) => openItem(it) };
 })();
