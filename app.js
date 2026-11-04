@@ -1,5 +1,5 @@
-// app.js — timer, scenes, sound mixer, tasks and stats.
-// Saved data stays in this browser (localStorage). Phase 2 moves it to Firebase.
+// app.js — timer, scenes, avatar, sound mixer, tasks and stats.
+// Saved data stays in this browser (localStorage). Phase 2 moves the shared parts to Firebase.
 
 // ---------- storage helpers (never crash if storage is blocked) ----------
 const store = {
@@ -15,6 +15,14 @@ const store = {
 };
 
 const $ = (id) => document.getElementById(id);
+
+// ---------- toast messages ----------
+let toastTimer = null;
+function toast(text, ms = 3200) {
+  $("toast").textContent = text;
+  clearTimeout(toastTimer);
+  if (ms) toastTimer = setTimeout(() => { $("toast").textContent = ""; }, ms);
+}
 
 // ---------- scenes ----------
 // Each scene comes with its own sound mix (0..1 per layer)
@@ -36,13 +44,14 @@ const settings = store.get("settings", { scene: "morning", focusLen: 25, mix: nu
 function setScene(scene, applyMix = true) {
   settings.scene = scene;
   document.documentElement.dataset.scene = scene;
-  Scene.set(scene);
+  const css = getComputedStyle(document.documentElement);
+  World.set(scene, css.getPropertyValue("--accent").trim(), css.getPropertyValue("--accent-ink").trim());
   document.querySelectorAll(".chip").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.scene === scene)));
   if (applyMix) {
     settings.mix = { ...SCENE_MIX[scene] };
     renderMixer();
   }
-  if (!timer.running) $("status").textContent = SCENE_LINES[scene];
+  if (!timer.running && World.seated) $("status").textContent = SCENE_LINES[scene];
   store.set("settings", settings);
 }
 
@@ -85,6 +94,99 @@ function setSound(on) {
 }
 $("soundToggle").addEventListener("click", () => setSound(!Sound.enabled));
 
+// ---------- drawer ----------
+$("panelBtn").addEventListener("click", () => {
+  const open = $("panel").hidden;
+  $("panel").hidden = !open;
+  $("panelBtn").setAttribute("aria-expanded", String(open));
+});
+
+// ---------- avatar ----------
+let look = store.get("look", null);
+const firstVisit = !look;
+if (!look) look = { name: "", skin: 1, hair: "short", hairColor: 0, shirt: 0 };
+let draft = { ...look };
+
+function swatchRow(el, colors, key) {
+  el.innerHTML = "";
+  colors.forEach((c, i) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "swatch";
+    b.id = `${key}-${i}`;
+    b.style.background = c;
+    b.setAttribute("aria-label", `${key} ${i + 1}`);
+    b.setAttribute("aria-pressed", String(draft[key] === i));
+    b.addEventListener("click", () => { draft[key] = i; renderAvatarCard(); });
+    el.appendChild(b);
+  });
+}
+
+function renderAvatarCard() {
+  swatchRow($("optSkin"), World.SKINS, "skin");
+  swatchRow($("optHairColor"), World.HAIR_COLORS, "hairColor");
+  swatchRow($("optShirt"), World.SHIRTS, "shirt");
+  const hair = $("optHair");
+  hair.innerHTML = "";
+  const names = { short: "Short", long: "Long", bun: "Bun", hijab: "Hijab" };
+  World.HAIRSTYLES.forEach((h) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.className = "seg";
+    b.id = "hair-" + h;
+    b.textContent = names[h];
+    b.setAttribute("aria-pressed", String(draft.hair === h));
+    b.addEventListener("click", () => { draft.hair = h; renderAvatarCard(); });
+    hair.appendChild(b);
+  });
+  $("hairColorLabel").textContent = draft.hair === "hijab" ? "Hijab colour" : "Hair colour";
+  World.drawPreview($("avatarPreview"), { ...draft, name: draft.name || "You" });
+}
+
+function openAvatar() {
+  draft = { ...look };
+  $("avatarName").value = draft.name;
+  $("avatarCard").hidden = false;
+  $("avatarSave").textContent = firstVisitPending ? "Enter the library" : "Save";
+  renderAvatarCard();
+}
+let firstVisitPending = firstVisit;
+
+$("avatarName").addEventListener("input", (e) => { draft.name = e.target.value.trim(); });
+$("avatarBtn").addEventListener("click", openAvatar);
+$("avatarSave").addEventListener("click", () => {
+  if (!draft.name) {
+    $("avatarName").focus();
+    $("avatarName").placeholder = "Add a name first";
+    return;
+  }
+  look = { ...draft };
+  store.set("look", look);
+  World.setLook(look);
+  $("avatarCard").hidden = true;
+  if (firstVisitPending) {
+    firstVisitPending = false;
+    toast(`Welcome, ${look.name}. Tap an empty chair to sit down.`, 5000);
+  } else {
+    toast("Avatar saved.");
+  }
+});
+
+// ---------- sitting ----------
+World.on("sit", (desk) => {
+  $("standBtn").hidden = false;
+  $("status").textContent = timer.running ? $("status").textContent : `Desk ${desk.id + 1} is yours. Press Start when ready.`;
+  toast(`You sat at desk ${desk.id + 1}.`);
+  renderTimer();
+});
+World.on("stand", () => {
+  $("standBtn").hidden = true;
+  if (!timer.running) $("status").textContent = "Tap an empty chair to sit down.";
+  renderTimer();
+});
+World.on("taken", (name) => toast(`${name} is sitting there. Pick an empty chair.`));
+$("standBtn").addEventListener("click", () => World.standUp());
+
 // ---------- timer ----------
 const timer = {
   mode: "focus",
@@ -120,10 +222,11 @@ function renderTimer() {
     if (i < timer.done) li.className = "done";
     dots.appendChild(li);
   }
-  const left = ROUND - timer.done;
-  $("roundLabel").textContent = left === ROUND ? "Long break after 4 sessions" : `${left} more until a long break`;
   const label = timer.mode === "focus" ? "Focus" : "Break";
   document.title = timer.running ? `${fmt(timer.remaining)} · ${label} – Nook` : "Nook Study Lounge";
+  // the bubble above your head in the library
+  const bubble = timer.running ? (timer.mode === "focus" ? fmt(timer.remaining) : "on a break") : null;
+  World.setPlayerTimer(bubble, timer.running && timer.mode === "focus" && !!World.seated);
 }
 
 let wakeLock = null;
@@ -139,7 +242,8 @@ function start() {
   timer.endAt = Date.now() + timer.remaining * 1000;
   timer.running = true;
   timer.handle = setInterval(tick, 250);
-  $("status").textContent = timer.mode === "focus" ? "Locked in. Notifications off." : "Break time. Look away from the screen.";
+  $("status").textContent = timer.mode === "focus" ? "Focusing. Phone face down." : "On a break. Stretch, drink water.";
+  if (timer.mode === "focus" && !World.seated) toast("Tip: sit at a desk so others can see you studying.");
   keepAwake(true);
   renderTimer();
 }
@@ -202,10 +306,10 @@ document.querySelectorAll(".len").forEach((b) => b.addEventListener("click", () 
 document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => setScene(b.dataset.scene)));
 
 document.addEventListener("keydown", (e) => {
-  const typing = e.target.closest("input, textarea");
-  if (typing) return;
+  if (e.target.closest("input, textarea")) return;
   if (e.code === "Space") { e.preventDefault(); timer.running ? pause() : start(); }
   if (e.key === "r" || e.key === "R") setMode(timer.mode);
+  if (e.key === "Escape" && !$("avatarCard").hidden && !firstVisitPending) $("avatarCard").hidden = true;
 });
 
 // ---------- stats ----------
@@ -226,7 +330,6 @@ function logSession(minutes) {
 function streak(days) {
   let count = 0;
   const d = new Date();
-  // today counts if you studied; otherwise the streak can still run up to yesterday
   if (!days[todayKey(d)]) d.setDate(d.getDate() - 1);
   while (days[todayKey(d)] && days[todayKey(d)].min > 0) {
     count += 1;
@@ -300,9 +403,13 @@ $("taskForm").addEventListener("submit", (e) => {
 });
 
 // ---------- start up ----------
+World.setLook(look.name ? look : { ...look, name: "You" });
+World.start();
 const savedMix = settings.mix;
 setScene(settings.scene || "morning", !savedMix);
 if (savedMix) { settings.mix = savedMix; renderMixer(); }
 setMode("focus");
 renderTasks();
 renderStats();
+if (firstVisit) openAvatar();
+else toast("Tap the floor to walk, or an empty chair to sit.", 4500);
