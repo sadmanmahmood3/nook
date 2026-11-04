@@ -14,34 +14,60 @@ const Net = (() => {
   const on = (name, fn) => { (handlers[name] = handlers[name] || []).push(fn); };
   const emit = (name, arg) => (handlers[name] || []).forEach((fn) => fn(arg));
 
+  const DOMAIN = String(cfg.domain || "iub.edu.bd").toLowerCase();
+  let user = null;
+
+  function client() {
+    if (!sb) sb = window.supabase.createClient(cfg.url, cfg.key);
+    return sb;
+  }
+  const configured = () => cfg.url && cfg.key && !cfg.key.startsWith("PASTE_") && window.supabase;
+  const isAllowed = (email) => String(email || "").toLowerCase().endsWith("@" + DOMAIN);
+
+  // returns { status: "online" | "login" | "offline", error? }
   async function start(initial) {
-    const configured = cfg.url && cfg.key && !cfg.key.startsWith("PASTE_");
-    if (!configured || !window.supabase) return false;
+    if (!configured()) return { status: "offline" };
     try {
-      sb = window.supabase.createClient(cfg.url, cfg.key);
-      let { data: { session } } = await sb.auth.getSession();
-      if (!session) {
-        const { data, error } = await sb.auth.signInAnonymously();
-        if (error) throw error;
-        session = data.session;
+      const { data: { session } } = await client().auth.getSession();
+      if (!session) return { status: "login" };
+      if (!isAllowed(session.user.email)) {
+        const email = session.user.email;
+        await sb.auth.signOut();
+        return { status: "login", error: email ? `${email} isn’t an IUB address. Pick your @${DOMAIN} account.` : null };
       }
-      me = session.user.id;
+      user = session.user;
+      me = user.id;
       state = { ...initial, id: me };
       joinRoom();
       await loadShares();
       watchShares();
       online = true;
-      return true;
+      return { status: "online" };
     } catch (err) {
       console.warn("Nook is running offline:", err);
-      return false;
+      return { status: "offline" };
     }
+  }
+
+  // Google sign-in; hd= asks Google to show IUB accounts first
+  async function signIn() {
+    const { error } = await client().auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: location.origin + location.pathname,
+        queryParams: { hd: DOMAIN, prompt: "select_account" },
+      },
+    });
+    if (error) throw error;
+  }
+  async function signOut() {
+    try { await client().auth.signOut(); } catch { /* ignore */ }
   }
 
   // ---------- the library room: presence + movement ----------
   function joinRoom() {
     room = sb.channel("library-main", {
-      config: { presence: { key: me }, broadcast: { self: false } },
+      config: { private: true, presence: { key: me }, broadcast: { self: false } },
     });
 
     room.on("presence", { event: "sync" }, () => {
@@ -90,7 +116,7 @@ const Net = (() => {
   }
 
   function watchShares() {
-    sb.channel("shares-feed")
+    sb.channel("shares-feed", { config: { private: true } })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "shares" }, (p) => emit("share", p.new))
       .on("postgres_changes", { event: "DELETE", schema: "public", table: "shares" }, (p) => emit("unshare", p.old && p.old.id))
       .subscribe();
@@ -146,7 +172,9 @@ const Net = (() => {
   }
 
   return {
-    start, on, update, sendPos, leave, rejoin,
+    start, on, update, sendPos, leave, rejoin, signIn, signOut,
+    get user() { return user; },
+    get domain() { return DOMAIN; },
     shareNote, shareFile, download, unshare,
     get online() { return online; },
     get me() { return me; },

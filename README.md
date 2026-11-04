@@ -29,6 +29,7 @@ Open `index.html` in a browser. No install or build step needed.
 | `config.js` | Supabase project address and public key |
 | `net.js` | Talks to Supabase: sign-in, presence, movement, shared files |
 | `online.js` | Connects the library to the network (falls back to solo mode) |
+| `supabase/iub-login.sql` | IUB-only access: security rules for @iub.edu.bd accounts and the sign-up check. Run after setup.sql |
 | `supabase/setup.sql` | Database tables, file bucket and security rules. Run once in the Supabase SQL Editor |
 | `audio.js` | Generates the ambient sounds and the end-of-session chime |
 | `app.js` | Timer, scenes, avatar editor, sound mixer, tasks, stats |
@@ -38,7 +39,9 @@ Open `index.html` in a browser. No install or build step needed.
 ## Roadmap
 - [x] Phase 1: Library, avatars, timer, ambient sounds
 - [x] Phase 2: Live library with Supabase: see other students walk, sit and study in real time; files and notes really reach the people they're shared with
-- [ ] Phase 3: IUB-only sign-up, course rooms (CSE 317, CSE 451…), streak leaderboard, chat
+- [x] Phase 3a: Sign in with an IUB Google account (@iub.edu.bd only, checked on the server); solo mode for everyone else
+- [ ] Phase 3b: Report shared files, admin tools, auto-cleanup of old files
+- [ ] Later: per-room live channels and automatic "Library 2" for big crowds, streak leaderboard
 - [ ] Phase 4: Deploy on Netlify, polish, test on phones
 
 ## Tech

@@ -3,4 +3,5 @@
 window.NOOK_CONFIG = {
   url: "https://fbjxxwgfvoucuxmtlqbi.supabase.co",
   key: "sb_publishable_zl-YhtM-RasovcDmbSzezA_O6TzXNFD",
+  domain: "iub.edu.bd", // only emails ending in @iub.edu.bd can join
 };

@@ -1,12 +1,76 @@
-// online.js — connects the library to Supabase so real students see each other.
-// If it can't connect, Nook stays in solo mode with the bots.
+// online.js — connects the library to Supabase so real IUB students see each other.
+// Without an IUB login (or without internet) Nook stays in solo mode with the bots.
 (async () => {
   const sub = $("brandSub");
   const look = () => store.get("look", null) || { name: "Student" };
   let timerState = { mode: null, endAt: null };
 
-  const ok = await Net.start({ look: look(), ...World.playerState(), timerEnd: null, mode: null });
-  if (!ok) return; // solo mode
+  // an error sent back by Google / Supabase after sign-in (e.g. a non-IUB account)
+  function signInError() {
+    const params = new URLSearchParams(location.hash.slice(1) + "&" + location.search.slice(1));
+    const msg = params.get("error_description");
+    if (params.has("error") || params.has("error_description")) {
+      history.replaceState(null, "", location.pathname);
+    }
+    if (!msg) return null;
+    return /iub|domain|403|not allowed|hook/i.test(msg)
+      ? `Only @${Net.domain} accounts can join Nook. Pick your IUB account.`
+      : "Sign-in didn’t work: " + msg;
+  }
+
+  function showSignedIn(email) {
+    $("signedIn").hidden = false;
+    if (email) {
+      $("signedText").innerHTML = "";
+      const strong = document.createElement("strong");
+      strong.textContent = email;
+      $("signedText").append("Signed in as ", strong, " ·");
+      $("signBtn").textContent = "Sign out";
+      $("signBtn").onclick = async () => { await Net.signOut(); location.reload(); };
+    } else {
+      $("signedText").textContent = "Solo mode: you can’t see other students.";
+      $("signBtn").textContent = "Sign in with IUB email";
+      $("signBtn").onclick = () => { $("avatarCard").hidden = true; $("loginScreen").hidden = false; };
+    }
+  }
+
+  $("googleBtn").addEventListener("click", async () => {
+    $("googleBtn").disabled = true;
+    $("loginError").textContent = "";
+    try {
+      await Net.signIn(); // the page goes to Google and comes back
+    } catch (err) {
+      $("googleBtn").disabled = false;
+      $("loginError").textContent = "Couldn’t open Google sign-in. Check your internet and try again.";
+    }
+  });
+  $("soloBtn").addEventListener("click", () => {
+    $("loginScreen").hidden = true;
+    showSignedIn(null);
+    toast("Solo mode. Sign in with your IUB email any time to study with others.", 5000);
+  });
+
+  const urlError = signInError();
+  const res = await Net.start({ look: look(), ...World.playerState(), timerEnd: null, mode: null });
+  if (res.status === "offline") return; // no internet or not set up: solo mode
+  if (res.status === "login") {
+    $("loginError").textContent = urlError || res.error || "";
+    $("loginScreen").hidden = false;
+    return;
+  }
+
+  // signed in with an IUB account
+  const user = Net.user;
+  showSignedIn(user.email);
+  if (!store.get("look", null)) {
+    // first time: fill in their first name from Google
+    const full = (user.user_metadata && (user.user_metadata.full_name || user.user_metadata.name)) || "";
+    const first = full.split(" ")[0].slice(0, 16);
+    if (first && !$("avatarName").value) {
+      $("avatarName").value = first;
+      $("avatarName").dispatchEvent(new Event("input"));
+    }
+  }
 
   const setCount = (n) => { sub.textContent = n === 1 ? "1 studying now" : `${n} studying now`; };
   setCount(1);

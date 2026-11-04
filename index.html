@@ -165,6 +165,10 @@
           <div class="field"><span class="label">Outfit</span><div class="swatches" id="optShirt"></div></div>
         </div>
       </div>
+      <p class="signed-in" id="signedIn" hidden>
+        <span id="signedText"></span>
+        <button type="button" class="link-btn" id="signBtn"></button>
+      </p>
       <div class="avatar-actions">
         <button type="button" class="btn primary" id="avatarSave">Enter the library</button>
       </div>
@@ -217,6 +221,19 @@
         <h2>You left the library</h2>
         <p>Your avatar, tasks and study streak are saved on this device. Come back whenever you’re ready.</p>
         <button type="button" class="btn primary" id="enterBtn">Enter the library</button>
+      </div>
+    </div>
+
+    <div class="leave-screen login-screen" id="loginScreen" hidden>
+      <div class="leave-card">
+        <span class="brand-mark big" aria-hidden="true"></span>
+        <h2>Join Nook with your IUB email</h2>
+        <p>Nook is a study space for IUB students. Sign in with your <strong>@iub.edu.bd</strong> Google account to study with others and share notes.</p>
+        <p class="form-error" id="loginError" role="alert"></p>
+        <button type="button" class="btn primary google-btn" id="googleBtn">
+          <span class="g-mark" aria-hidden="true">G</span> Continue with Google
+        </button>
+        <button type="button" class="link-btn" id="soloBtn">Look around without signing in</button>
       </div>
     </div>
 
