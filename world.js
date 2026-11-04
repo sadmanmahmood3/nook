@@ -49,15 +49,13 @@ const World = (() => {
   // ---------- layout of the room ----------
   const ROWS = [560, 700, 840];          // desk front edges
   const COLS = [280, 620, 980, 1320];    // desk centres
-  const LANES = [482, 622, 762, 884];    // where people can walk left/right
-  const AISLES = [110, 450, 800, 1150, 1490]; // where people can walk up/down
   const WINDOWS = [310, 800, 1290].map((cx) => ({ cx, x: cx - 115, w: 230, top: 60, bottom: 330, r: 115 }));
   const SHELVES = [[10, 170], [450, 650], [950, 1150], [1430, 1590]];
 
   const desks = [];
   ROWS.forEach((y, r) => COLS.forEach((x) => {
     const k = depth(y);
-    desks.push({ id: desks.length, x, y, k, lane: LANES[r], seatY: y - 40 * k, occupant: null });
+    desks.push({ id: desks.length, x, y, k, seatY: y - 40 * k, occupant: null });
   }));
 
   // books on the shelves (fixed pattern)
@@ -101,11 +99,11 @@ const World = (() => {
 
   // ---------- characters ----------
   function makeChar(look, opts = {}) {
-    return { look, x: 0, y: 0, path: [], state: "stand", seated: null, reserve: null, dir: 1, phase: 0, seed: rnd() * 5000, bot: !!opts.bot, timer: null, studying: false, item: opts.item || "book", idle: 3 };
+    return { id: opts.id || (look.name || "").toLowerCase(), look, x: 0, y: 0, path: [], state: "stand", seated: null, reserve: null, dir: 1, phase: 0, seed: rnd() * 5000, bot: !!opts.bot, timer: null, studying: false, item: opts.item || "book", idle: 3, files: 0 };
   }
 
-  const player = makeChar({ name: "You", skin: 1, hair: "short", hairColor: 0, shirt: 0 }, { item: "laptop" });
-  player.x = 800; player.y = LANES[3];
+  const player = makeChar({ name: "You", skin: 1, hair: "short", hairColor: 0, shirt: 0 }, { item: "laptop", id: "me" });
+  player.x = 800; player.y = 884;
 
   const bots = [
     { desk: 1, look: { name: "Rafi", skin: 2, hair: "short", hairColor: 0, shirt: 1 }, item: "book" },
@@ -121,50 +119,127 @@ const World = (() => {
   });
 
   const librarian = makeChar({ name: "Librarian", skin: 0, hair: "bun", hairColor: 5, shirt: 4 }, { bot: true });
-  librarian.x = 110; librarian.y = LANES[0];
+  librarian.x = 110; librarian.y = 490;
   librarian.isLibrarian = true;
 
   const chars = [player, librarian, ...bots];
 
-  // ---------- walking ----------
-  const onLane = (y) => LANES.some((l) => Math.abs(l - y) < 0.5);
-  const nearestLane = (y) => LANES.reduce((a, b) => (Math.abs(b - y) < Math.abs(a - y) ? b : a));
+  // ---------- walking: collision + path finding ----------
+  const FLOOR_TOP = WALL + 45, FLOOR_BOTTOM = WH - 12;
 
-  function route(from, to) {
-    if (Math.abs(from.y - to.y) < 0.5) return [{ x: to.x, y: to.y }];
-    let best = AISLES[0], cost = Infinity;
-    for (const a of AISLES) {
-      const c = Math.abs(from.x - a) + Math.abs(to.x - a);
-      if (c < cost) { cost = c; best = a; }
+  // true if a character's feet can't stand at (x, y)
+  function blocked(x, y) {
+    if (x < 60 || x > WW - 60 || y < FLOOR_TOP || y > FLOOR_BOTTOM) return true;
+    for (const d of desks) {
+      if (Math.abs(x - d.x) < 100 * d.k + 12 && y > d.seatY - 14 && y < d.y + 10) return true;
     }
-    return [{ x: best, y: from.y }, { x: best, y: to.y }, { x: to.x, y: to.y }];
+    return false;
+  }
+  // the spot right behind a chair, where you step in to sit
+  const approach = (d) => ({ x: d.x, y: d.seatY - 24 });
+
+  // a grid of walkable cells, used to find a way around desks
+  const CELL = 16;
+  const GC = Math.ceil(WW / CELL), GR = Math.ceil(WH / CELL);
+  const free = new Uint8Array(GC * GR);
+  for (let r = 0; r < GR; r++) for (let c = 0; c < GC; c++) {
+    free[r * GC + c] = blocked(c * CELL + CELL / 2, r * CELL + CELL / 2) ? 0 : 1;
+  }
+  const cellOf = (x, y) => [clamp(Math.floor(x / CELL), 0, GC - 1), clamp(Math.floor(y / CELL), 0, GR - 1)];
+
+  function nearestFree(c, r) {
+    if (free[r * GC + c]) return [c, r];
+    for (let rad = 1; rad < 14; rad++) {
+      for (let dr = -rad; dr <= rad; dr++) for (let dc = -rad; dc <= rad; dc++) {
+        const cc = c + dc, rr = r + dr;
+        if (cc >= 0 && rr >= 0 && cc < GC && rr < GR && free[rr * GC + cc]) return [cc, rr];
+      }
+    }
+    return [c, r];
+  }
+
+  function lineClear(a, b) {
+    const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y) / 6);
+    for (let i = 1; i <= n; i++) {
+      const t = i / n;
+      if (blocked(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t)) return false;
+    }
+    return true;
+  }
+
+  // breadth-first search over the grid, then cut corners where the way is clear
+  function findPath(from, to) {
+    const [sc, sr] = nearestFree(...cellOf(from.x, from.y));
+    const [gc, gr] = nearestFree(...cellOf(to.x, to.y));
+    const start = sr * GC + sc, goal = gr * GC + gc;
+    const prev = new Int32Array(GC * GR).fill(-1);
+    prev[start] = start;
+    const queue = [start];
+    const dirs = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+    for (let head = 0; head < queue.length; head++) {
+      const cur = queue[head];
+      if (cur === goal) break;
+      const c = cur % GC, r = (cur / GC) | 0;
+      for (const [dc, dr] of dirs) {
+        const nc = c + dc, nr = r + dr;
+        if (nc < 0 || nr < 0 || nc >= GC || nr >= GR) continue;
+        const n = nr * GC + nc;
+        if (!free[n] || prev[n] !== -1) continue;
+        if (dc && dr && (!free[r * GC + nc] || !free[nr * GC + c])) continue;
+        prev[n] = cur;
+        queue.push(n);
+      }
+    }
+    if (prev[goal] === -1) return [];
+    const raw = [];
+    for (let n = goal; n !== start; n = prev[n]) raw.push({ x: (n % GC) * CELL + CELL / 2, y: ((n / GC) | 0) * CELL + CELL / 2 });
+    raw.reverse();
+    if (!blocked(to.x, to.y)) raw.push({ x: to.x, y: to.y });
+    const out = [];
+    let cur = { x: from.x, y: from.y };
+    for (let i = 0; i < raw.length;) {
+      let j = raw.length - 1;
+      while (j > i && !lineClear(cur, raw[j])) j--;
+      out.push(raw[j]);
+      cur = raw[j];
+      i = j + 1;
+    }
+    return out;
   }
 
   const events = {};
+  const emit = (name, arg) => (events[name] || []).forEach((fn) => fn(arg));
 
-  // make sure the character is back on a walking lane before a new route
+  // stop whatever the character was doing (standing up if seated)
   function leaveSpot(c) {
     if (c.reserve && !c.seated) { c.reserve.occupant = null; c.reserve = null; }
     if (c.seated) {
       const d = c.seated;
       d.occupant = null; c.seated = null; c.state = "stand";
-      if (c === player && events.stand) events.stand();
-      return [{ x: d.x, y: d.lane }];
+      const a = approach(d);
+      c.x = a.x; c.y = a.y;
+      if (c === player) emit("stand");
     }
-    if (onLane(c.y)) return [];
-    return [{ x: c.x, y: nearestLane(c.y) }];
+    c.path = [];
   }
 
-  function walkTo(c, tx, laneY, sitDesk) {
-    const pre = leaveSpot(c);
-    const from = pre.length ? pre[pre.length - 1] : { x: c.x, y: c.y };
-    const pts = route(from, { x: tx, y: laneY });
+  function walkTo(c, tx, ty, sitDesk) {
+    leaveSpot(c);
+    const target = sitDesk ? approach(sitDesk) : { x: tx, y: ty };
+    const pts = findPath(c, target);
     if (sitDesk) {
       pts.push({ x: sitDesk.x, y: sitDesk.seatY, sit: sitDesk });
       sitDesk.occupant = c;
       c.reserve = sitDesk;
     }
-    c.path = pre.concat(pts);
+    c.path = pts;
+  }
+
+  function sitAt(d) {
+    if (!d || (d.occupant && d.occupant !== player)) return false;
+    if (player.seated === d || player.reserve === d) return true;
+    walkTo(player, 0, 0, d);
+    return true;
   }
 
   function step(c, dt) {
@@ -181,7 +256,7 @@ const World = (() => {
       c.path.shift();
       if (p.sit) {
         c.state = "sit"; c.seated = p.sit; c.reserve = null;
-        if (c === player && events.sit) events.sit(p.sit);
+        if (c === player) emit("sit", p.sit);
       }
     } else {
       c.x += (dx / d) * speed;
@@ -508,9 +583,12 @@ const World = (() => {
     ctx.fillRect(-98, -72, 196, 14);
     ctx.fillStyle = ROOM.deskEdge;
     ctx.fillRect(-98, -58, 196, 7);
-    // books
-    ctx.fillStyle = "#3f6b78"; ctx.fillRect(-86, -79, 30, 7);
-    ctx.fillStyle = "#d8a54a"; ctx.fillRect(-83, -85, 26, 6);
+    // books (replaced by a paper stack when this person has shared files)
+    const sharing = d.occupant && d.occupant.seated === d && d.occupant.files > 0;
+    if (!sharing) {
+      ctx.fillStyle = "#3f6b78"; ctx.fillRect(-86, -79, 30, 7);
+      ctx.fillStyle = "#d8a54a"; ctx.fillRect(-83, -85, 26, 6);
+    }
     // lamp
     ctx.fillStyle = ROOM.lampShade;
     ctx.beginPath(); ctx.ellipse(72, -73, 10, 3.5, 0, 0, Math.PI * 2); ctx.fill();
@@ -521,6 +599,18 @@ const World = (() => {
     ctx.beginPath(); ctx.ellipse(66, -101, 8, 2.5, 0, 0, Math.PI * 2); ctx.fill();
 
     const o = d.occupant;
+    if (o && o.seated === d && o.files > 0) {
+      // a little stack of shared papers with a count badge
+      ctx.fillStyle = "#e9e2d2"; ctx.fillRect(-84, -80, 28, 7);
+      ctx.fillStyle = "#f7f3ea"; ctx.fillRect(-86, -85, 28, 7);
+      ctx.fillStyle = "#ffffff"; ctx.fillRect(-82, -90, 28, 7);
+      ctx.fillStyle = accent;
+      ctx.beginPath(); ctx.arc(-52, -96, 10, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = accentInk;
+      ctx.font = "700 12px Figtree, 'Segoe UI', system-ui, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(String(o.files), -52, -95.5);
+    }
     if (o && o.seated === d) {
       const skin = SKINS[o.look.skin] || SKINS[1];
       if (o.item === "laptop") {
@@ -634,7 +724,9 @@ const World = (() => {
       pill(c.look.name || "You", c.x, top, isMe ? accent : "rgba(255,255,255,0.88)", isMe ? accentInk : "#22302a", c.bot ? "bot" : null);
       if (c.timer) pill(c.timer, c.x, top - 24, "rgba(20,24,30,0.78)", "#ffffff", null);
     }
-    if (hovered && !hovered.occupant) {
+    if (near && !player.seated && !player.reserve) {
+      pill(isTouch ? "Tap Sit to sit here" : "Press E to sit", near.x, near.seatY - 108 * near.k, accent, accentInk, null);
+    } else if (hovered && !hovered.occupant) {
       pill("Sit here", hovered.x, hovered.seatY - 108 * hovered.k, accent, accentInk, null);
     }
     if (ring) {
@@ -652,6 +744,54 @@ const World = (() => {
   let accent = "#d9692f", accentInk = "#ffffff", accentGlow = "rgba(217,105,47,0.3)";
   let W = 0, H = 0, dpr = 1, s = 1, ox = 0, oy = 0;
   let hovered = null, ring = null, last = 0;
+  let near = null, lastNear = undefined;
+  const input = { x: 0, y: 0 };
+  const isTouch = window.matchMedia("(pointer: coarse)").matches;
+
+  function randomFreePoint() {
+    for (let i = 0; i < 20; i++) {
+      const x = 80 + rnd() * 1440, y = FLOOR_TOP + rnd() * (FLOOR_BOTTOM - FLOOR_TOP);
+      if (!blocked(x, y)) return { x, y };
+    }
+    return { x: 110, y: 490 };
+  }
+
+  // keyboard / joystick movement for your character
+  function moveByInput(dt) {
+    const len = Math.hypot(input.x, input.y);
+    if (len < 0.15) {
+      if (!player.path.length && player.state === "walk") player.state = "stand";
+      return;
+    }
+    if (player.seated || player.reserve || player.path.length) leaveSpot(player);
+    const sp = 190 * dt * Math.min(1, len);
+    const vx = (input.x / len) * sp, vy = (input.y / len) * sp * 0.8;
+    const stuck = blocked(player.x, player.y);
+    if (stuck || !blocked(player.x + vx, player.y)) player.x += vx;
+    if (stuck || !blocked(player.x, player.y + vy)) player.y += vy;
+    player.state = "walk";
+    player.phase += dt * 11;
+    if (Math.abs(vx) > 0.01) player.dir = vx > 0 ? 1 : -1;
+  }
+
+  // which empty chair is close enough to sit on?
+  function findNear() {
+    near = null;
+    if (!player.seated && !player.reserve) {
+      // anywhere around the desk counts: behind it, beside it or just in front
+      let best = Infinity;
+      for (const d of desks) {
+        if (d.occupant) continue;
+        const dx = Math.abs(player.x - d.x);
+        const inside = dx < 150 * d.k && player.y > d.seatY - 70 && player.y < d.y + 40;
+        if (inside && dx < best) { best = dx; near = d; }
+      }
+    }
+    if (near !== lastNear) {
+      lastNear = near;
+      emit("near", near);
+    }
+  }
 
   function resize() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -664,13 +804,15 @@ const World = (() => {
   }
 
   function update(dt, t) {
+    moveByInput(dt);
     for (const c of chars) step(c, dt);
+    findNear();
     // librarian wanders between shelves
     if (!librarian.path.length) {
       librarian.idle -= dt;
       if (librarian.idle <= 0) {
-        const lane = LANES[Math.floor(rnd() * LANES.length)];
-        walkTo(librarian, clamp(90 + rnd() * 1420, 70, 1530), lane);
+        const p = randomFreePoint();
+        walkTo(librarian, p.x, p.y);
         librarian.idle = 4 + rnd() * 6;
       }
     }
@@ -747,18 +889,16 @@ const World = (() => {
     const p = toWorld(e);
     const d = deskAt(p);
     if (d) {
-      if (d.occupant && d.occupant !== player) { events.taken && events.taken(d.occupant.look.name); return; }
-      if (player.seated === d || player.reserve === d) return;
-      walkTo(player, d.x, d.lane, d);
-      events.walking && events.walking(true);
+      const o = d.occupant;
+      if (o && o.seated === d && o.files > 0) { emit("files", o.id); return; }
+      if (o && o !== player) { emit("taken", o.look.name); return; }
+      sitAt(d);
       return;
     }
     if (p.y > WALL + 10) {
-      const lane = nearestLane(p.y);
-      const x = clamp(p.x, 70, 1530);
-      walkTo(player, x, lane);
-      ring = { x, y: lane, age: 0 };
-      events.walking && events.walking(false);
+      const x = clamp(p.x, 70, 1530), y = clamp(p.y, FLOOR_TOP, FLOOR_BOTTOM);
+      walkTo(player, x, y);
+      ring = { x, y, age: 0 };
     }
     if (reduceMotion) render(performance.now());
   });
@@ -779,7 +919,7 @@ const World = (() => {
   return {
     start,
     SKINS, HAIR_COLORS, SHIRTS, HAIRSTYLES,
-    on(name, fn) { events[name] = fn; },
+    on(name, fn) { (events[name] = events[name] || []).push(fn); },
     set(scene, accentColor, inkColor) {
       if (!MOOD[scene]) return;
       sceneName = scene; mood = MOOD[scene];
@@ -791,12 +931,21 @@ const World = (() => {
     },
     setLook(look) { player.look = { ...look }; },
     setPlayerTimer(text, studying) { player.timer = text; player.studying = !!studying; },
-    standUp() {
-      if (!player.seated) return;
-      const d = player.seated;
-      walkTo(player, d.x, d.lane);
+    standUp() { if (player.seated || player.reserve) leaveSpot(player); },
+    // E key / Sit button: sit at the nearest empty chair, or stand up
+    action() {
+      if (player.seated || player.reserve) { leaveSpot(player); return "stand"; }
+      if (near) { sitAt(near); return "sit"; }
+      return null;
     },
+    setInput(x, y) { input.x = x; input.y = y; },
+    people() {
+      return chars.filter((c) => c !== player).map((c) => ({ id: c.id, name: c.look.name, bot: c.bot }));
+    },
+    nameOf(id) { const c = chars.find((x) => x.id === id); return c ? c.look.name : "Someone"; },
+    setFileCounts(map) { for (const c of chars) c.files = map[c.id] || 0; },
     get seated() { return player.seated; },
+    get isTouch() { return isTouch; },
     drawPreview(el, look) {
       const g = el.getContext("2d");
       const r = Math.min(window.devicePixelRatio || 1, 2);

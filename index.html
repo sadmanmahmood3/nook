@@ -33,6 +33,7 @@
 
       <div class="top-actions">
         <button type="button" class="pill-btn" id="avatarBtn"><span class="wide">My </span>avatar</button>
+        <button type="button" class="pill-btn" id="filesBtn" aria-expanded="false" aria-controls="filesPanel"><span class="wide">Shared </span>files<span class="count" id="filesCount"></span></button>
         <button type="button" class="pill-btn" id="panelBtn" aria-expanded="false" aria-controls="panel">Sounds<span class="wide"> &amp; tasks</span></button>
         <button type="button" class="pill-btn sound-toggle" id="soundToggle" aria-pressed="false" aria-label="Sound">
           <span class="sound-icon" aria-hidden="true"></span>
@@ -72,11 +73,33 @@
           <button type="button" class="len" id="len-90" data-len="90">90</button>
           <span class="unit">min</span>
         </div>
-        <button type="button" class="btn small" id="standBtn" hidden>Stand up</button>
+        <div class="dock-actions">
+          <button type="button" class="btn small" id="shareBtn">Share</button>
+          <button type="button" class="btn small" id="standBtn" hidden>Stand up</button>
+        </div>
       </div>
     </section>
 
     <p class="toast" id="toast" role="status" aria-live="polite"></p>
+
+    <!-- phone controls -->
+    <div class="stick" id="stick" aria-hidden="true" hidden><span class="knob" id="knob"></span></div>
+    <button type="button" class="action-btn" id="actionBtn" hidden>Sit</button>
+
+    <aside class="panel files-panel" id="filesPanel" hidden>
+      <section class="block" aria-labelledby="filesTitle">
+        <div class="block-head">
+          <h2 id="filesTitle">Shared in the library</h2>
+          <button type="button" class="btn small primary-soft" id="shareBtn2">Share something</button>
+        </div>
+        <p class="filter" id="filesFilter" hidden>
+          <span id="filesFilterText"></span>
+          <button type="button" class="link-btn" id="filesShowAll">Show all</button>
+        </p>
+        <ul class="files" id="filesList"></ul>
+        <p class="fine">Allowed: PDF, Word, PowerPoint, Excel, images, text and zip files up to 10 MB. Share only material you have the right to share.</p>
+      </section>
+    </aside>
 
     <aside class="panel" id="panel" hidden>
       <section class="block" aria-labelledby="mixTitle">
@@ -134,10 +157,65 @@
         <button type="button" class="btn primary" id="avatarSave">Enter the library</button>
       </div>
     </div>
+
+    <form class="avatar-card share-card" id="shareCard" role="dialog" aria-labelledby="shareTitle" hidden>
+      <div class="avatar-head">
+        <h2 id="shareTitle">Share study material</h2>
+        <p>Send a file or a quick note to everyone here, or to one person.</p>
+      </div>
+      <div class="segmented" role="group" aria-label="What to share">
+        <button type="button" class="seg" id="kind-file" data-kind="file" aria-pressed="true">File</button>
+        <button type="button" class="seg" id="kind-note" data-kind="note" aria-pressed="false">Note</button>
+      </div>
+
+      <div class="share-file" id="shareFileBox">
+        <label class="drop" id="dropZone" for="shareFile">
+          <strong id="dropTitle">Choose a file or drop it here</strong>
+          <span id="dropSub">PDF, Word, slides, sheets, images, text or zip · up to 10 MB</span>
+        </label>
+        <input type="file" id="shareFile" class="sr" accept=".pdf,.txt,.md,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.png,.jpg,.jpeg,.webp,.zip">
+      </div>
+
+      <div class="share-note" id="shareNoteBox" hidden>
+        <label class="field" for="noteTitle">
+          <span class="label">Title</span>
+          <input id="noteTitle" type="text" maxlength="60" placeholder="e.g. CSE 317 mid-term topics" autocomplete="off">
+        </label>
+        <label class="field" for="noteText">
+          <span class="label">Note</span>
+          <textarea id="noteText" rows="6" maxlength="4000" placeholder="Write or paste your notes here"></textarea>
+        </label>
+      </div>
+
+      <label class="field" for="shareTo">
+        <span class="label">Share with</span>
+        <select id="shareTo"></select>
+      </label>
+
+      <p class="form-error" id="shareError" role="alert"></p>
+      <div class="avatar-actions">
+        <button type="button" class="btn" id="shareCancel">Cancel</button>
+        <button type="submit" class="btn primary" id="shareSubmit">Share</button>
+      </div>
+    </form>
+
+    <div class="avatar-card view-card" id="viewCard" role="dialog" aria-labelledby="viewTitle" hidden>
+      <div class="avatar-head">
+        <h2 id="viewTitle">Note</h2>
+        <p id="viewMeta"></p>
+      </div>
+      <div class="view-body" id="viewBody"></div>
+      <div class="avatar-actions">
+        <button type="button" class="btn" id="viewSave">Save as file</button>
+        <button type="button" class="btn primary" id="viewClose">Close</button>
+      </div>
+    </div>
   </div>
 
   <script src="audio.js"></script>
   <script src="world.js"></script>
   <script src="app.js"></script>
+  <script src="share.js"></script>
+  <script src="controls.js"></script>
 </body>
 </html>

@@ -5,15 +5,17 @@ A cozy virtual library for IUB students. Make an avatar, walk in, pick a desk, a
 ## Features
 - A 2D library drawn live on a canvas: arched windows, bookshelves, 12 desks
 - Your own avatar (name, skin tone, hairstyle including hijab, outfit)
-- Tap the floor to walk, tap an empty chair to sit; your timer shows above your head while you study
+- Walk with arrow keys / WASD and press E to sit (computer), or use the joystick and Sit button (phone). Tapping also works
+- Your timer shows above your head while you study
+- Share study material: PDFs, Word, slides, sheets, images, text, zip (up to 10 MB) or quick notes, with everyone or one person. People who shared something get a paper stack on their desk
 - Bot students and a wandering librarian (real students arrive in Phase 2)
 - Pomodoro timer: 15 / 25 / 50 / 90 minute focus sessions, short and long breaks, long break after 4 sessions
 - Four scenes: Morning, Rainy, Night, Café change the light and the view outside
 - Ambient sound mixer: rain, birds, wind, crickets, café, hum. All sounds are generated with the Web Audio API, so there are no audio files
 - Today's task list
 - Daily focus minutes, sessions and day streak
-- Keyboard: `Space` start/pause, `R` reset
-- Saves settings, tasks and stats in the browser (localStorage)
+- Keyboard: arrows/WASD walk, `E` sit/stand, `Space` start/pause timer, `R` reset
+- Saves settings, avatar, tasks and stats in the browser (localStorage). Shared files stay in this browser until Phase 2
 
 ## Run it
 Open `index.html` in a browser. No install or build step needed.
@@ -26,6 +28,8 @@ Open `index.html` in a browser. No install or build step needed.
 | `world.js` | Draws the library, characters and lighting; handles walking and sitting |
 | `audio.js` | Generates the ambient sounds and the end-of-session chime |
 | `app.js` | Timer, scenes, avatar editor, sound mixer, tasks, stats |
+| `controls.js` | Keyboard, joystick and Sit button |
+| `share.js` | Sharing files and notes, the shared files panel and viewer |
 
 ## Roadmap
 - [x] Phase 1: Library, avatars, timer, ambient sounds

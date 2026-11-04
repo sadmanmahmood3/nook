@@ -94,12 +94,20 @@ function setSound(on) {
 }
 $("soundToggle").addEventListener("click", () => setSound(!Sound.enabled));
 
-// ---------- drawer ----------
-$("panelBtn").addEventListener("click", () => {
-  const open = $("panel").hidden;
-  $("panel").hidden = !open;
-  $("panelBtn").setAttribute("aria-expanded", String(open));
-});
+// ---------- drawers (only one open at a time) ----------
+const DRAWERS = { panel: "panelBtn", filesPanel: "filesBtn" };
+function setDrawer(id, open) {
+  for (const [p, b] of Object.entries(DRAWERS)) {
+    const show = p === id && open;
+    $(p).hidden = !show;
+    $(b).setAttribute("aria-expanded", String(show));
+  }
+}
+const drawerOpen = (id) => !$(id).hidden;
+$("panelBtn").addEventListener("click", () => setDrawer("panel", !drawerOpen("panel")));
+
+// any pop-up card open? (then keys shouldn't move you or start the timer)
+const modalOpen = () => !!document.querySelector(".avatar-card:not([hidden])");
 
 // ---------- avatar ----------
 let look = store.get("look", null);
@@ -166,7 +174,7 @@ $("avatarSave").addEventListener("click", () => {
   $("avatarCard").hidden = true;
   if (firstVisitPending) {
     firstVisitPending = false;
-    toast(`Welcome, ${look.name}. Tap an empty chair to sit down.`, 5000);
+    toast(World.isTouch ? `Welcome, ${look.name}. Use the joystick to walk, then tap Sit next to a chair.` : `Welcome, ${look.name}. Use the arrow keys or WASD to walk. Press E next to a chair to sit.`, 6000);
   } else {
     toast("Avatar saved.");
   }
@@ -306,10 +314,15 @@ document.querySelectorAll(".len").forEach((b) => b.addEventListener("click", () 
 document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => setScene(b.dataset.scene)));
 
 document.addEventListener("keydown", (e) => {
-  if (e.target.closest("input, textarea")) return;
+  if (e.key === "Escape") {
+    document.querySelectorAll(".share-card, .view-card").forEach((c) => { c.hidden = true; });
+  }
+  if (e.target.closest("input, textarea, select") || modalOpen()) {
+    if (e.key === "Escape" && !$("avatarCard").hidden && !firstVisitPending) $("avatarCard").hidden = true;
+    return;
+  }
   if (e.code === "Space") { e.preventDefault(); timer.running ? pause() : start(); }
   if (e.key === "r" || e.key === "R") setMode(timer.mode);
-  if (e.key === "Escape" && !$("avatarCard").hidden && !firstVisitPending) $("avatarCard").hidden = true;
 });
 
 // ---------- stats ----------
@@ -412,4 +425,4 @@ setMode("focus");
 renderTasks();
 renderStats();
 if (firstVisit) openAvatar();
-else toast("Tap the floor to walk, or an empty chair to sit.", 4500);
+else toast(World.isTouch ? "Use the joystick to walk. Tap Sit next to a chair." : "Arrow keys or WASD to walk. Press E next to a chair to sit.", 5000);
