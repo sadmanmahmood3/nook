@@ -61,7 +61,6 @@ function renderMixer() {
   mixer.innerHTML = "";
   for (const name in Sound.layers) {
     const v = settings.mix[name] ?? 0;
-    Sound.setVolume(name, v);
     const row = document.createElement("div");
     row.className = "mix-row";
     row.innerHTML = `
@@ -74,13 +73,14 @@ function renderMixer() {
     input.addEventListener("input", () => {
       const val = input.value / 100;
       settings.mix[name] = val;
-      Sound.setVolume(name, val);
+      applyRoomSound();
       out.textContent = input.value;
       input.style.setProperty("--fill", input.value + "%");
       store.set("settings", settings);
     });
     mixer.appendChild(row);
   }
+  applyRoomSound();
 }
 
 // Sound is on by default. Browsers only allow audio after the visitor's first
@@ -92,6 +92,22 @@ function showSound(on) {
   $("soundLabel").textContent = on ? "Sound on" : "Sound off";
   $("mixNote").textContent = on ? "Mix your own background" : "Turn sound on to listen";
 }
+
+// each part of the library sounds a little different
+function applyRoomSound() {
+  const z = World.zone;
+  for (const name in Sound.layers) {
+    let v = settings.mix[name] ?? 0;
+    if (z === "cafe") v = name === "cafe" ? Math.max(v, 0.6) : name === "brown" ? Math.max(v, 0.15) : v * 0.35;
+    if (z === "group") v = name === "cafe" ? Math.max(v, 0.2) : v * 0.8;
+    Sound.setVolume(name, v);
+  }
+}
+World.on("zone", (z) => {
+  applyRoomSound();
+  const info = World.ZONES[z];
+  if (info) toast(`${info.name}. ${info.hint}`);
+});
 
 function setSound(on) {
   soundWanted = on;
@@ -227,8 +243,8 @@ $("avatarSave").addEventListener("click", () => {
 // ---------- sitting ----------
 World.on("sit", (desk) => {
   $("standBtn").hidden = false;
-  $("status").textContent = timer.running ? $("status").textContent : `Desk ${desk.id + 1} is yours. Press Start when ready.`;
-  toast(`You sat at desk ${desk.id + 1}.`);
+  $("status").textContent = timer.running ? $("status").textContent : "Your seat is ready. Press Start when ready.";
+  toast(`You sat at ${desk.label}.`);
   renderTimer();
 });
 World.on("stand", () => {

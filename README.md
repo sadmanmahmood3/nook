@@ -3,7 +3,7 @@
 A cozy virtual library for IUB students. Make an avatar, walk in, pick a desk, and study with a focus timer and ambient sound.
 
 ## Features
-- A 2D library drawn live on a canvas: arched windows, bookshelves, 12 desks
+- A 2D library drawn live on a canvas: a reading hall (12 desks), a glass-walled café corner (6 tables for two, its own sounds) and group tables (4 tables for six). The camera follows you and a mini map shows everyone
 - Your own avatar (name, skin tone, hairstyle including hijab, outfit)
 - Walk with arrow keys / WASD and press E to sit (computer), or use the joystick and Sit button (phone). Tapping also works
 - Your timer shows above your head while you study

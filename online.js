@@ -32,6 +32,33 @@
   document.addEventListener("nook:leave", () => { Net.leave(); sub.textContent = "IUB study lounge"; World.syncRemotes([]); });
   document.addEventListener("nook:enter", () => { Net.update(World.playerState()); Net.rejoin(); });
 
+  // Leave the room when the page closes (phone back button, closing the tab), and
+  // after 15 seconds in the background (switching apps). Come back in automatically.
+  const inLibrary = () => $("leaveScreen").hidden;
+  let awayTimer = null;
+  let away = false;
+  function stepOut() {
+    away = true;
+    Net.leave();
+    World.syncRemotes([]);
+  }
+  function stepIn() {
+    if (!away || !inLibrary()) return;
+    away = false;
+    Net.update(World.playerState());
+    Net.rejoin();
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      if (inLibrary()) awayTimer = setTimeout(stepOut, 15000);
+    } else {
+      clearTimeout(awayTimer);
+      stepIn();
+    }
+  });
+  window.addEventListener("pagehide", () => { clearTimeout(awayTimer); stepOut(); });
+  window.addEventListener("pageshow", (e) => { if (e.persisted) stepIn(); });
+
   // send your position a few times a second while you walk, and once when you stop
   let last = World.playerState();
   setInterval(() => {

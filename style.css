@@ -497,8 +497,8 @@ input[type="range"]::-moz-range-thumb {
 @media (pointer: coarse) and (max-width: 760px) {
   /* keep hints out of the way of your character and the joystick */
   .toast {
-    top: auto;
-    bottom: calc(max(10px, env(safe-area-inset-bottom, 0px)) + 122px);
+    bottom: auto;
+    top: calc(max(10px, env(safe-area-inset-top, 0px)) + 156px);
     max-width: calc(100% - 64px);
     border-radius: 16px;
   }
