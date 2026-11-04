@@ -3,6 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- Nook draws its own day and night colours; stop phone browsers from forcing their dark mode -->
+  <meta name="color-scheme" content="only light">
   <title>Nook Study Lounge</title>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <meta name="description" content="A cozy virtual library for IUB students: walk in, pick a desk, and study together with a focus timer and ambient sounds.">
@@ -42,7 +44,7 @@
       </div>
     </header>
 
-    <section class="dock" aria-label="Study timer">
+    <section class="dock compact" id="dock" aria-label="Study timer">
       <div class="dock-row">
         <div class="modes" role="group" aria-label="Timer mode">
           <button type="button" class="mode" id="mode-focus" data-mode="focus">Focus</button>
@@ -61,6 +63,7 @@
           <button type="button" class="btn primary" id="startBtn">Start</button>
           <button type="button" class="btn" id="resetBtn">Reset</button>
           <button type="button" class="btn" id="skipBtn">Skip</button>
+          <button type="button" class="btn more-btn" id="dockMore" aria-expanded="false" aria-controls="dock">More</button>
         </div>
       </div>
 
@@ -76,6 +79,7 @@
         <div class="dock-actions">
           <button type="button" class="btn small" id="shareBtn">Share</button>
           <button type="button" class="btn small" id="standBtn" hidden>Stand up</button>
+          <button type="button" class="btn small" id="leaveBtn">Leave</button>
         </div>
       </div>
     </section>
@@ -87,6 +91,10 @@
     <button type="button" class="action-btn" id="actionBtn" hidden>Sit</button>
 
     <aside class="panel files-panel" id="filesPanel" hidden>
+      <div class="drawer-bar">
+        <span>Shared files</span>
+        <button type="button" class="drawer-close" data-close="filesPanel" aria-label="Close shared files">×</button>
+      </div>
       <section class="block" aria-labelledby="filesTitle">
         <div class="block-head">
           <h2 id="filesTitle">Shared in the library</h2>
@@ -102,6 +110,10 @@
     </aside>
 
     <aside class="panel" id="panel" hidden>
+      <div class="drawer-bar">
+        <span>Sounds &amp; tasks</span>
+        <button type="button" class="drawer-close" data-close="panel" aria-label="Close sounds and tasks">×</button>
+      </div>
       <section class="block" aria-labelledby="mixTitle">
         <div class="block-head">
           <h2 id="mixTitle">Sounds</h2>
@@ -198,6 +210,15 @@
         <button type="submit" class="btn primary" id="shareSubmit">Share</button>
       </div>
     </form>
+
+    <div class="leave-screen" id="leaveScreen" hidden>
+      <div class="leave-card">
+        <span class="brand-mark big" aria-hidden="true"></span>
+        <h2>You left the library</h2>
+        <p>Your avatar, tasks and study streak are saved on this device. Come back whenever you’re ready.</p>
+        <button type="button" class="btn primary" id="enterBtn">Enter the library</button>
+      </div>
+    </div>
 
     <div class="avatar-card view-card" id="viewCard" role="dialog" aria-labelledby="viewTitle" hidden>
       <div class="avatar-head">

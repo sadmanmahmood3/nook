@@ -29,6 +29,9 @@
     Net.update({ mode: timerState.mode, timerEnd: timerState.endAt });
   });
 
+  document.addEventListener("nook:leave", () => { Net.leave(); sub.textContent = "IUB study lounge"; World.syncRemotes([]); });
+  document.addEventListener("nook:enter", () => { Net.update(World.playerState()); Net.rejoin(); });
+
   // send your position a few times a second while you walk, and once when you stop
   let last = World.playerState();
   setInterval(() => {

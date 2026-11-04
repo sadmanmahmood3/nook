@@ -129,9 +129,21 @@ function setDrawer(id, open) {
 }
 const drawerOpen = (id) => !$(id).hidden;
 $("panelBtn").addEventListener("click", () => setDrawer("panel", !drawerOpen("panel")));
+document.querySelectorAll("[data-close]").forEach((b) => b.addEventListener("click", () => setDrawer(b.dataset.close, false)));
+// on phones the drawers cover the library, so tapping the library closes them
+$("scene").addEventListener("pointerdown", () => {
+  if (World.isTouch) setDrawer(null, false);
+});
+
+// ---------- compact timer on phones ----------
+$("dockMore").addEventListener("click", () => {
+  const compact = $("dock").classList.toggle("compact");
+  $("dockMore").textContent = compact ? "More" : "Less";
+  $("dockMore").setAttribute("aria-expanded", String(!compact));
+});
 
 // any pop-up card open? (then keys shouldn't move you or start the timer)
-const modalOpen = () => !!document.querySelector(".avatar-card:not([hidden])");
+const modalOpen = () => !!document.querySelector(".avatar-card:not([hidden]), .leave-screen:not([hidden])");
 
 // ---------- avatar ----------
 let look = store.get("look", null);
@@ -365,6 +377,23 @@ document.addEventListener("keydown", (e) => {
   }
   if (e.code === "Space") { e.preventDefault(); timer.running ? pause() : start(); }
   if (e.key === "r" || e.key === "R") setMode(timer.mode);
+});
+
+// ---------- leaving and coming back ----------
+$("leaveBtn").addEventListener("click", () => {
+  if (timer.running) pause();
+  World.standUp();
+  setDrawer(null, false);
+  if (soundWanted) Sound.setEnabled(false);
+  $("leaveScreen").hidden = false;
+  $("status").textContent = "Tap an empty chair to sit down.";
+  document.dispatchEvent(new CustomEvent("nook:leave"));
+});
+$("enterBtn").addEventListener("click", () => {
+  $("leaveScreen").hidden = true;
+  if (soundWanted) Sound.setEnabled(true);
+  document.dispatchEvent(new CustomEvent("nook:enter"));
+  toast(`Welcome back${look.name ? ", " + look.name : ""}.`);
 });
 
 // ---------- stats ----------

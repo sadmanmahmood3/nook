@@ -497,8 +497,9 @@ input[type="range"]::-moz-range-thumb {
 @media (pointer: coarse) and (max-width: 760px) {
   /* keep hints out of the way of your character and the joystick */
   .toast {
-    bottom: auto;
-    top: calc(max(14px, env(safe-area-inset-top, 0px)) + 290px);
+    top: auto;
+    bottom: calc(max(10px, env(safe-area-inset-bottom, 0px)) + 122px);
+    max-width: calc(100% - 64px);
     border-radius: 16px;
   }
 }
@@ -507,42 +508,140 @@ input[type="range"]::-moz-range-thumb {
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* ---------- Responsive ---------- */
+/* ---------- Drawer header with a close button ---------- */
+.drawer-bar {
+  position: sticky; top: 0; z-index: 2;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 6px 6px 16px;
+  border-radius: 16px;
+  background: var(--glass); border: 1px solid var(--glass-line);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  font: 700 13px/1 var(--font-body); color: var(--ink-soft);
+  letter-spacing: 0.02em;
+}
+.drawer-close {
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 0; background: var(--track); color: var(--ink);
+  font: 400 22px/1 var(--font-body);
+  display: grid; place-items: center;
+  cursor: pointer;
+}
+.drawer-close:hover { background: var(--accent); color: var(--accent-ink); }
+
+/* "More" only exists on phones */
+.more-btn { display: none; }
+
+/* ---------- Leave screen ---------- */
+.leave-screen {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  background: color-mix(in srgb, var(--wall) 55%, transparent);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.leave-card {
+  width: min(400px, 100%);
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  padding: 30px 26px 26px;
+  border-radius: 26px;
+  text-align: center;
+  background: var(--glass); border: 1px solid var(--glass-line);
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, 0.6);
+}
+.leave-card h2 { margin: 4px 0 0; font: 750 22px/1.2 var(--font-display); }
+.leave-card p { margin: 0 0 6px; color: var(--ink-soft); font-size: 14px; max-width: 32ch; }
+.brand-mark.big { width: 46px; height: 46px; border-radius: 23px 23px 7px 7px; border-width: 2.5px; }
+
+/* ---------- Phones: lighter, calmer, smaller ---------- */
 @media (max-width: 760px) {
-  .top { gap: 8px; }
-  .brand { padding: 5px 10px 5px 6px; }
-  .brand-text strong { font-size: 18px; }
-  .top-actions { gap: 6px; }
-  .pill-btn { padding: 9px 11px; font-size: 12.5px; text-transform: capitalize; }
+  body { font-size: 14px; }
+  .app { padding-block: max(10px, env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-bottom, 0px)); }
+  .top { gap: 6px; }
+  .brand { padding: 5px 10px; border-radius: 12px; }
+  .brand-mark { display: none; }
+  .brand-text strong { font-size: 15px; }
+  .brand-text small { font-size: 10px; letter-spacing: 0.02em; }
+  .top-actions { gap: 5px; }
+  .pill-btn { padding: 7px 10px; font-size: 12px; text-transform: capitalize; }
   .wide { display: none; }
-  .sound-toggle { padding: 9px 12px; }
-  .scenes { order: 3; width: 100%; justify-content: space-between; }
-  .chip { flex: 1; padding: 8px 4px; font-size: 12.5px; }
+  .sound-toggle { padding: 7px 9px; }
+  .sound-icon { width: 12px; height: 12px; }
+  .count:not(:empty) { min-width: 16px; height: 16px; font-size: 10px; }
+  .scenes { order: 3; width: 100%; justify-content: space-between; padding: 3px; }
+  .chip { flex: 1; padding: 7px 4px; font-size: 12px; }
+
+  /* timer: compact by default, "More" shows the rest */
   .dock {
-    top: calc(max(14px, env(safe-area-inset-top, 0px)) + 98px);
+    top: calc(max(10px, env(safe-area-inset-top, 0px)) + 84px);
     left: max(16px, env(safe-area-inset-left, 0px));
     right: max(16px, env(safe-area-inset-right, 0px));
     width: auto;
-    gap: 8px;
+    gap: 10px;
     padding: 10px 12px;
+    border-radius: 18px;
+    box-shadow: 0 12px 30px -20px rgba(30, 20, 10, 0.5);
   }
-  .time { font-size: 44px; }
-  .status { font-size: 12px; }
-  .btn.primary { min-width: 96px; padding: 11px 16px; }
+  .time { font-size: 34px; letter-spacing: -0.03em; }
+  .status { font-size: 11.5px; margin-top: 2px; }
+  .controls { display: flex; gap: 6px; align-items: center; }
+  .btn { font-size: 13px; padding: 8px 12px; border-radius: 10px; }
+  .btn.primary { min-width: 78px; font-size: 14px; padding: 10px 16px; }
+  .controls .btn:not(.primary) { padding: 8px 10px; font-size: 12.5px; }
+  .more-btn { display: inline-block; }
+  .mode { padding: 6px 9px; font-size: 11.5px; }
+  .len { font-size: 12px; padding: 5px 7px; min-width: 30px; }
+  .label { font-size: 9.5px; }
+  .dock.compact > .dock-row:not(.main),
+  .dock.compact .status,
+  .dock.compact #resetBtn,
+  .dock.compact #skipBtn { display: none; }
+  .dock-row:last-child { flex-wrap: wrap; row-gap: 8px; }
+  .dock:not(.compact) .dock-row.main { flex-wrap: wrap; row-gap: 8px; }
+  .dock:not(.compact) .controls { width: 100%; }
+  .dock:not(.compact) .controls .btn { flex: 1; }
+
+  /* drawers become bottom sheets */
   .panel {
     top: auto;
-    left: max(16px, env(safe-area-inset-left, 0px));
+    left: max(10px, env(safe-area-inset-left, 0px));
+    right: max(10px, env(safe-area-inset-right, 0px));
+    bottom: max(10px, env(safe-area-inset-bottom, 0px));
     width: auto;
-    max-height: 58%;
+    max-height: 62%;
+    gap: 8px;
   }
+  .block { padding: 12px 14px 14px; border-radius: 16px; }
+  .block h2 { font-size: 14.5px; }
+  .block-head { margin-bottom: 8px; }
+  .file { grid-template-columns: 36px minmax(0, 1fr); padding: 8px 0; }
+  .file-badge { width: 36px; height: 44px; font-size: 9px; }
+  .file-main strong { font-size: 13px; }
+  .file-main .meta { font-size: 11px; }
+  .file-actions .btn { padding: 5px 10px; font-size: 12px; }
+  .fine { font-size: 10.5px; }
+  .mix-row { grid-template-columns: 62px minmax(0, 1fr) 26px; }
+  .mix-row label, .tasks .task-text { font-size: 13px; }
+  .stats dd { font-size: 18px; }
+
+  .avatar-card { padding: 18px; border-radius: 22px; }
+  .avatar-head h2 { font-size: 20px; }
+  .avatar-head p { font-size: 13px; }
   .avatar-body { grid-template-columns: 1fr; justify-items: center; }
   .avatar-options { width: 100%; }
-  .avatar-preview { width: 120px; height: 150px; }
+  .avatar-preview { width: 110px; height: 140px; }
+  .swatch { width: 26px; height: 26px; }
+  .seg { padding: 7px 10px; font-size: 12.5px; }
+
+  /* game controls: smaller and see-through */
+  .stick { width: 100px; height: 100px; background: color-mix(in srgb, var(--glass) 45%, transparent); }
+  .knob { width: 42px; height: 42px; opacity: 0.9; }
+  .action-btn { width: 64px; height: 64px; font-size: 14px; bottom: max(44px, env(safe-area-inset-bottom, 0px)); opacity: 0.92; }
+  .toast { font-size: 12.5px; padding: 8px 14px; }
 }
-@media (max-width: 420px) {
-  .brand-text small, .brand-mark { display: none; }
-  .brand { padding: 6px 12px; }
-  .pill-btn { padding: 9px 10px; }
-  .mode { padding: 7px 8px; font-size: 11.5px; }
+@media (max-width: 380px) {
+  .brand-text small { display: none; }
+  .pill-btn { padding: 7px 8px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

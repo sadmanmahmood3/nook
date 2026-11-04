@@ -74,7 +74,7 @@ const Net = (() => {
     state = { ...state, ...partial };
     if (!room) return;
     clearTimeout(trackTimer);
-    trackTimer = setTimeout(() => room.track(state), 300);
+    trackTimer = setTimeout(() => { if (room) room.track(state); }, 300);
   }
 
   function sendPos(x, y, moving) {
@@ -132,8 +132,21 @@ const Net = (() => {
     if (error) throw error;
   }
 
+  // leave the room (others stop seeing you) and come back later
+  async function leave() {
+    if (!room) return;
+    const r = room;
+    room = null;
+    try { await r.untrack(); } catch { /* ignore */ }
+    sb.removeChannel(r);
+  }
+  function rejoin() {
+    if (!sb || room) return;
+    joinRoom();
+  }
+
   return {
-    start, on, update, sendPos,
+    start, on, update, sendPos, leave, rejoin,
     shareNote, shareFile, download, unshare,
     get online() { return online; },
     get me() { return me; },
