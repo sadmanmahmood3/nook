@@ -40,6 +40,7 @@ const SCENE_LINES = {
 };
 
 const settings = store.get("settings", { scene: "morning", focusLen: 25, mix: null });
+if (![5, 10, 15].includes(settings.breakLen)) settings.breakLen = 5;
 
 function setScene(scene, applyMix = true) {
   settings.scene = scene;
@@ -261,7 +262,7 @@ const timer = {
   running: false,
   endAt: 0,
   remaining: 25 * 60,
-  done: 0, // focus sessions finished in this round (long break after 4)
+  done: 0, // focus sessions finished in this round (the dots; a round is 4)
   handle: null,
   heldFocus: null, // seconds left on a focus session you left for a break
 };
@@ -269,8 +270,7 @@ const ROUND = 4;
 
 function lengthOf(mode) {
   if (mode === "focus") return settings.focusLen * 60;
-  if (mode === "short") return (settings.focusLen >= 50 ? 10 : 5) * 60;
-  return (settings.focusLen >= 50 ? 25 : 15) * 60;
+  return settings.breakLen * 60;
 }
 
 function fmt(sec) {
@@ -290,7 +290,11 @@ function renderTimer() {
   $("time").textContent = fmt(timer.remaining);
   $("startBtn").textContent = timer.running ? "Pause" : timer.remaining < lengthOf(timer.mode) ? "Resume" : "Start";
   document.querySelectorAll(".mode").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.mode === timer.mode)));
-  document.querySelectorAll(".len").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.len) === settings.focusLen)));
+  document.querySelectorAll(".len[data-len]").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.len) === settings.focusLen)));
+  document.querySelectorAll(".len[data-blen]").forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.blen) === settings.breakLen)));
+  // the length chips follow the mode: focus lengths while focusing, break lengths on a break
+  $("focusLens").hidden = timer.mode !== "focus";
+  $("breakLens").hidden = timer.mode === "focus";
   const dots = $("dots");
   dots.innerHTML = "";
   for (let i = 0; i < ROUND; i++) {
@@ -336,7 +340,7 @@ function pause() {
   announceTimer();
 }
 
-// switch between Focus / Short break / Long break.
+// switch between Focus and Break.
 // Leaving an unfinished focus session for a break keeps its time; coming back
 // to Focus picks up from there instead of starting over.
 function setMode(mode, { hold = true } = {}) {
@@ -385,9 +389,9 @@ function finish(completed) {
       logSession(settings.focusLen);
       timer.done += 1;
     }
-    next = timer.done >= ROUND ? "long" : "short";
+    next = "break";
   } else {
-    if (was === "long") timer.done = 0;
+    if (timer.done >= ROUND) timer.done = 0; // a round of 4 is done: start fresh dots
     next = "focus";
   }
   // a finished or skipped focus session isn't held for later
@@ -395,7 +399,7 @@ function finish(completed) {
   const resumed = was !== "focus" && timer.remaining < lengthOf("focus");
   if (completed) {
     $("status").textContent = was === "focus"
-      ? (next === "long" ? "Four sessions done. Take a proper long break." : "Session done. Take a short break.")
+      ? (timer.done >= ROUND ? "Four sessions done! Take a longer break if you need one." : "Session done. Take a break.")
       : resumed ? `Break’s over. ${fmt(timer.remaining)} of focus left. Press Resume.` : "Break’s over. Ready for the next one?";
   } else if (!resumed) {
     $("status").textContent = "Skipped.";
@@ -408,7 +412,12 @@ $("skipBtn").addEventListener("click", () => finish(false));
 document.querySelectorAll(".mode").forEach((b) => b.addEventListener("click", () => {
   if (b.dataset.mode !== timer.mode) setMode(b.dataset.mode); // tapping the mode you're in does nothing
 }));
-document.querySelectorAll(".len").forEach((b) => b.addEventListener("click", () => {
+document.querySelectorAll(".len[data-blen]").forEach((b) => b.addEventListener("click", () => {
+  settings.breakLen = Number(b.dataset.blen);
+  store.set("settings", settings);
+  if (timer.mode !== "focus") resetMode(); // your held focus time stays safe
+}));
+document.querySelectorAll(".len[data-len]").forEach((b) => b.addEventListener("click", () => {
   settings.focusLen = Number(b.dataset.len);
   store.set("settings", settings);
   timer.heldFocus = null; // a new length starts a fresh session
@@ -428,6 +437,7 @@ document.addEventListener("keydown", (e) => {
   if (e.key === "r" || e.key === "R") resetMode();
 });
 
+World.on("tapAway", () => setDrawer(null, false));
 World.on("blockedWay", () => toast("Someone’s in the way. Walk around them or pick another spot."));
 
 // ---------- leaving and coming back ----------

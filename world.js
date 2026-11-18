@@ -213,7 +213,7 @@ const World = (() => {
   // ---------- bodies: people can't walk through each other ----------
   // Everyone standing or walking takes up an oval of floor. Seated people are
   // already behind their table, so they don't block the aisles.
-  const BODY_RX = 30, BODY_RY = 17;
+  const BODY_RX = 42, BODY_RY = 28;
   function bodyAt(c, x, y) {
     for (const o of chars) {
       if (o === c || o.state === "sit" || o.seated) continue;
@@ -1348,6 +1348,13 @@ const World = (() => {
   });
   canvas.addEventListener("pointerleave", () => { hovered = null; });
   canvas.addEventListener("pointerdown", (e) => {
+    if (!e.isPrimary || (e.pointerType === "mouse" && e.button !== 0)) return;
+    // typing? the first tap on the library only closes the keyboard (iPhone sends
+    // that tap through to the page, which used to make you stand up and walk)
+    const f = document.activeElement;
+    if (f && f.matches && f.matches("input, textarea, select")) { f.blur(); return; }
+    // on a phone, a tap beside an open panel closes the panel instead of walking
+    if (isTouch && document.querySelector(".panel:not([hidden])")) { emit("tapAway"); return; }
     if (inMap(e)) {
       const m = mapRect;
       const x = clamp((e.clientX - m.x) / m.f, 70, WW - 70);

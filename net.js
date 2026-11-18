@@ -93,10 +93,41 @@ const Net = (() => {
       if (status === "SUBSCRIBED") {
         await room.track(state);
         emit("status", "online");
+        visitBegin();
       } else if (status === "CHANNEL_ERROR" || status === "TIMED_OUT" || status === "CLOSED") {
         emit("status", "offline");
       }
     });
+  }
+
+  // ---------- visit history (only admins can see it) ----------
+  // When you're in the library, Nook notes that you're here once a minute.
+  // If the visits table isn't set up yet (supabase/visits.sql), this quietly does nothing.
+  let visitId = null, visitTimer = null;
+  const myName = () => String((state && state.look && state.look.name) || "").slice(0, 40);
+  async function visitStart() {
+    try {
+      const { data, error } = await sb.rpc("visit_start", { n: myName() });
+      if (!error && data) visitId = data;
+    } catch { /* not set up yet */ }
+  }
+  async function visitPing() {
+    if (!visitId) return visitStart();
+    try {
+      const { data, error } = await sb.rpc("visit_ping", { v: visitId, n: myName() });
+      if (!error && data === false) { visitId = null; await visitStart(); }
+    } catch { /* offline for a moment */ }
+  }
+  function visitBegin() {
+    if (visitTimer) return;
+    visitStart();
+    visitTimer = setInterval(() => { if (room) visitPing(); }, 60000);
+  }
+  function visitEnd() {
+    if (!visitTimer) return;
+    clearInterval(visitTimer);
+    visitTimer = null;
+    if (visitId) visitPing(); // note the time you left
   }
 
   // change what others see about you (sent at most ~3 times a second)
@@ -193,6 +224,7 @@ const Net = (() => {
   // leave the room (others stop seeing you) and come back later
   async function leave() {
     if (!room) return;
+    visitEnd();
     leaveTable();
     const r = room;
     room = null;
@@ -247,6 +279,16 @@ const Net = (() => {
     async unblock(email) {
       const { error } = await sb.from("blocked").delete().eq("email", email);
       if (error) throw error;
+    },
+    async visitors(days) {
+      const { data, error } = await sb.rpc("admin_visitors", { n_days: days });
+      if (error) throw error;
+      return data || [];
+    },
+    async recentVisits(n) {
+      const { data, error } = await sb.rpc("admin_recent_visits", { n_limit: n });
+      if (error) throw error;
+      return data || [];
     },
     async storage() {
       const { data, error } = await sb.rpc("storage_used");

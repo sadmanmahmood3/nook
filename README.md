@@ -11,7 +11,7 @@ A cozy virtual library for IUB students. Make an avatar, walk in, pick a desk, a
 - Your timer shows above your head while you study
 - Share study material: PDFs, Word, slides, sheets, images, text, zip (up to 10 MB) or quick notes, with everyone or one person. People who shared something get a paper stack on their desk
 - Bot students and a wandering librarian (real students arrive in Phase 2)
-- Pomodoro timer: 15 / 25 / 50 / 90 minute focus sessions, short and long breaks, long break after 4 sessions. Taking a break in the middle of a focus session keeps its time: after the break you resume where you stopped
+- Pomodoro timer: 15 / 25 / 50 / 90 minute focus sessions and 5 / 10 / 15 minute breaks. Taking a break in the middle of a focus session keeps its time: after the break you resume where you stopped
 - Four scenes: Morning, Rainy, Night, Café change the light and the view outside
 - Ambient sound mixer: rain, birds, wind, crickets, café, hum. All sounds are generated with the Web Audio API, so there are no audio files
 - Today's task list
@@ -33,7 +33,8 @@ Open `index.html` in a browser. No install or build step needed.
 | `online.js` | Connects the library to the network (falls back to solo mode) |
 | `supabase/iub-login.sql` | IUB-only access: security rules for @iub.edu.bd accounts and the sign-up check. Run after setup.sql |
 | `supabase/moderation.sql` | Reports, admins, blocking and cleanup. Run after iub-login.sql |
-| `admin.js` | The admin panel (only shown to admins) |
+| `supabase/visits.sql` | Visit history for the admin's Visitors tab (kept 90 days). Run after moderation.sql |
+| `admin.js` | The admin panel (only shown to admins): reports, blocked people, visitors, storage |
 | `supabase/setup.sql` | Database tables, file bucket and security rules. Run once in the Supabase SQL Editor |
 | `audio.js` | Generates the ambient sounds and the end-of-session chime |
 | `app.js` | Timer, scenes, avatar editor, sound mixer, tasks, stats |

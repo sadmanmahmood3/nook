@@ -2,7 +2,7 @@
 <html lang="en" data-scene="morning">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
   <!-- Nook draws its own day and night colours; stop phone browsers from forcing their dark mode -->
   <meta name="color-scheme" content="only light">
   <title>Nook Study Lounge</title>
@@ -50,8 +50,7 @@
       <div class="dock-row">
         <div class="modes" role="group" aria-label="Timer mode">
           <button type="button" class="mode" id="mode-focus" data-mode="focus">Focus</button>
-          <button type="button" class="mode" id="mode-short" data-mode="short">Short break</button>
-          <button type="button" class="mode" id="mode-long" data-mode="long">Long break</button>
+          <button type="button" class="mode" id="mode-break" data-mode="break">Break</button>
         </div>
         <ol class="dots" id="dots" aria-label="Focus sessions this round"></ol>
       </div>
@@ -70,12 +69,19 @@
       </div>
 
       <div class="dock-row">
-        <div class="lengths" role="group" aria-label="Focus length">
+        <div class="lengths" id="focusLens" role="group" aria-label="Focus length">
           <span class="label">Focus</span>
           <button type="button" class="len" id="len-15" data-len="15">15</button>
           <button type="button" class="len" id="len-25" data-len="25">25</button>
           <button type="button" class="len" id="len-50" data-len="50">50</button>
           <button type="button" class="len" id="len-90" data-len="90">90</button>
+          <span class="unit">min</span>
+        </div>
+        <div class="lengths" id="breakLens" role="group" aria-label="Break length" hidden>
+          <span class="label">Break</span>
+          <button type="button" class="len blen" id="blen-5" data-blen="5">5</button>
+          <button type="button" class="len blen" id="blen-10" data-blen="10">10</button>
+          <button type="button" class="len blen" id="blen-15" data-blen="15">15</button>
           <span class="unit">min</span>
         </div>
         <div class="dock-actions">
@@ -273,6 +279,7 @@
       <div class="segmented" role="group" aria-label="Admin sections">
         <button type="button" class="seg" id="tab-reports" data-tab="reports" aria-pressed="true">Reports</button>
         <button type="button" class="seg" id="tab-blocked" data-tab="blocked" aria-pressed="false">Blocked</button>
+        <button type="button" class="seg" id="tab-visitors" data-tab="visitors" aria-pressed="false">Visitors</button>
         <button type="button" class="seg" id="tab-storage" data-tab="storage" aria-pressed="false">Storage</button>
       </div>
       <div class="admin-body" id="adminBody"></div>

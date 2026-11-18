@@ -67,6 +67,13 @@
   stick.addEventListener("pointermove", (e) => { if (e.pointerId === pointer) moveKnob(e); });
   stick.addEventListener("pointerup", release);
   stick.addEventListener("pointercancel", release);
+  stick.addEventListener("lostpointercapture", release);
+  // iPhone can swallow the "finger lifted" event when the keyboard or a pop-up
+  // appears, which left the stick pushed and walked you off on your own
+  const letGo = () => { pointer = null; knob.style.transform = ""; World.setInput(0, 0); };
+  window.addEventListener("blur", letGo);
+  document.addEventListener("visibilitychange", letGo);
+  document.addEventListener("focusin", (e) => { if (e.target.matches && e.target.matches("input, textarea, select")) letGo(); });
 
   // ---------- Sit / Stand button ----------
   let nearDesk = null;
