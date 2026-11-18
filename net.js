@@ -112,6 +112,34 @@ const Net = (() => {
     room.send({ type: "broadcast", event: "pos", payload: { id: me, x: Math.round(x), y: Math.round(y), m: moving } });
   }
 
+  // ---------- table chat ----------
+  // Each café and group table has its own live channel. Messages go only to the
+  // people sitting at that table and are never saved: when you stand up, they're gone.
+  let table = null, tableId = null;
+  function joinTable(id) {
+    if (!sb || !me) return;
+    if (tableId === id && table) return;
+    leaveTable();
+    tableId = id;
+    table = sb.channel("nook-table-" + id, { config: { private: true, broadcast: { self: false } } });
+    table.on("broadcast", { event: "msg" }, ({ payload }) => {
+      if (!payload || payload.from === me || typeof payload.text !== "string") return;
+      emit("chat", { id: String(payload.id || ""), from: String(payload.from || ""), text: payload.text.slice(0, 300), at: Date.now(), table: id });
+    });
+    table.subscribe((status) => emit("chatStatus", status === "SUBSCRIBED" ? "ready" : status === "CHANNEL_ERROR" || status === "TIMED_OUT" ? "error" : "wait"));
+  }
+  function leaveTable() {
+    if (table) sb.removeChannel(table);
+    table = null; tableId = null;
+  }
+  async function sendChat(text) {
+    if (!table) throw new Error("not at a table");
+    const msg = { id: crypto.randomUUID(), from: me, text: String(text).slice(0, 300) };
+    const res = await table.send({ type: "broadcast", event: "msg", payload: msg });
+    if (res !== "ok") throw new Error("not sent");
+    return msg;
+  }
+
   // ---------- shared files and notes ----------
   async function loadShares() {
     const { data, error } = await sb.from("shares").select("*").order("created_at", { ascending: false }).limit(100);
@@ -165,6 +193,7 @@ const Net = (() => {
   // leave the room (others stop seeing you) and come back later
   async function leave() {
     if (!room) return;
+    leaveTable();
     const r = room;
     room = null;
     try { await r.untrack(); } catch { /* ignore */ }
@@ -236,7 +265,7 @@ const Net = (() => {
   };
 
   return {
-    start, on, update, sendPos, leave, rejoin, signIn, signOut, report, cleanupMine, Admin,
+    start, on, update, sendPos, leave, rejoin, joinTable, leaveTable, sendChat, signIn, signOut, report, cleanupMine, Admin,
     get admin() { return admin; },
     get user() { return user; },
     get domain() { return DOMAIN; },

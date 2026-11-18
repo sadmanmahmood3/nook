@@ -210,6 +210,54 @@ const World = (() => {
   // the spot right beside a chair, where you step in to sit
   const approach = (s) => ({ x: s.x, y: s.facing === "front" ? s.y - 24 : s.y + 24 });
 
+  // ---------- bodies: people can't walk through each other ----------
+  // Everyone standing or walking takes up an oval of floor. Seated people are
+  // already behind their table, so they don't block the aisles.
+  const BODY_RX = 30, BODY_RY = 17;
+  function bodyAt(c, x, y) {
+    for (const o of chars) {
+      if (o === c || o.state === "sit" || o.seated) continue;
+      const k = depth(o.y);
+      const rx = BODY_RX * k, ry = BODY_RY * k;
+      const d = ((x - o.x) / rx) ** 2 + ((y - o.y) / ry) ** 2;
+      if (d >= 1) continue;
+      // already overlapping (e.g. two people arrived on the same spot):
+      // let them move apart, just not closer
+      const d0 = ((c.x - o.x) / rx) ** 2 + ((c.y - o.y) / ry) ** 2;
+      if (d <= d0) return o;
+    }
+    return null;
+  }
+  const canStand = (c, x, y) => !blocked(x, y) && !bodyAt(c, x, y);
+
+  // try to move c by (vx, vy); if someone is in the way, slide around them
+  function moveBody(c, vx, vy) {
+    const sp = Math.hypot(vx, vy);
+    if (sp < 1e-6) return false;
+    if (canStand(c, c.x + vx, c.y + vy)) { c.x += vx; c.y += vy; return true; }
+    const o = bodyAt(c, c.x + vx, c.y + vy);
+    if (o) {
+      // step sideways around the other person (pick the side closer to where we're going)
+      let nx = c.x - o.x, ny = (c.y - o.y) * (BODY_RX / BODY_RY);
+      const nl = Math.hypot(nx, ny) || 1;
+      nx /= nl; ny /= nl;
+      let tx = -ny, ty = nx;
+      let dot = tx * vx + ty * vy;
+      if (Math.abs(dot) < 0.05 * sp) {
+        // walking straight at them: go around on the side we're already on
+        const side = c.y >= o.y ? 1 : -1;
+        if (ty * side < 0) { tx = -tx; ty = -ty; }
+      } else if (dot < 0) { tx = -tx; ty = -ty; }
+      // a little push outward too, so we curve around instead of grinding
+      const sx = (tx * 0.85 + nx * 0.35) * sp, sy = (ty * 0.85 + ny * 0.35) * sp * 0.8;
+      if (canStand(c, c.x + sx, c.y + sy)) { c.x += sx; c.y += sy; return true; }
+    }
+    // slide along one axis (walls, or a body plus a wall)
+    if (Math.abs(vx) > 1e-3 && canStand(c, c.x + vx, c.y)) { c.x += vx; return true; }
+    if (Math.abs(vy) > 1e-3 && canStand(c, c.x, c.y + vy)) { c.y += vy; return true; }
+    return false;
+  }
+
   const CELL = 16;
   const GC = Math.ceil(WW / CELL), GR = Math.ceil(WH / CELL);
   const free = new Uint8Array(GC * GR);
@@ -329,9 +377,25 @@ const World = (() => {
         c.state = "sit"; c.seated = p.sit; c.reserve = null;
         if (c === player) { player.sitAt = Date.now(); emit("sit", p.sit); }
       }
-    } else {
+    } else if (p.sit) {
+      // the last little step from the aisle into the chair
       c.x += (dx / d) * speed;
       c.y += (dy / d) * speed;
+    } else {
+      const ox = c.x, oy = c.y;
+      moveBody(c, (dx / d) * speed, (dy / d) * speed);
+      const moved = Math.hypot(c.x - ox, c.y - oy);
+      c.stuck = moved < speed * 0.3 ? (c.stuck || 0) + dt : 0;
+      const last = c.path[c.path.length - 1];
+      const left = Math.hypot(last.x - c.x, last.y - c.y);
+      // someone is standing where we wanted to go: stop next to them
+      if (c.stuck > 0.6 && !last.sit && left < 70) { c.path = []; c.stuck = 0; }
+      // blocked for a while: give up (and let go of a chair we were heading to)
+      else if (c.stuck > 3) {
+        c.stuck = 0;
+        leaveSpot(c);
+        if (c === player) emit("blockedWay");
+      }
     }
     if (!c.path.length && c.state === "walk") c.state = "stand";
   }
@@ -1000,13 +1064,57 @@ const World = (() => {
     }
   }
 
+  // a chat message floating above someone's head for a few seconds
+  const BUBBLE_MAX = 200;
+  function bubbleText(text) {
+    ctx.font = "600 13px Figtree, 'Segoe UI', system-ui, sans-serif";
+    let t = text;
+    if (ctx.measureText(t).width > BUBBLE_MAX) {
+      while (t.length > 1 && ctx.measureText(t + "…").width > BUBBLE_MAX) t = t.slice(0, -1);
+      t += "…";
+    }
+    return t;
+  }
+  const bubbleWidth = (text) => ctx.measureText(bubbleText(text)).width + 22;
+  function bubble(text, x, y, left) {
+    const t = bubbleText(text);
+    const w = ctx.measureText(t).width + 22, h = 28;
+    ctx.globalAlpha = Math.min(1, left / 400);
+    ctx.fillStyle = "#ffffff";
+    ctx.shadowColor = "rgba(0,0,0,0.25)"; ctx.shadowBlur = 10; ctx.shadowOffsetY = 3;
+    rrect(ctx, x - w / 2, y - h, w, h, 14); ctx.fill();
+    ctx.shadowColor = "transparent"; ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+    ctx.beginPath(); ctx.moveTo(x - 7, y - 1); ctx.lineTo(x + 7, y - 1); ctx.lineTo(x, y + 7); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "#1d2128";
+    ctx.textBaseline = "middle"; ctx.textAlign = "center";
+    ctx.fillText(t, x, y - h / 2 + 0.5);
+    ctx.textAlign = "left";
+    ctx.globalAlpha = 1;
+  }
+
   function drawTags() {
+    const talk = [];
     for (const c of chars) {
       const k = depth(c.y);
       const top = c.state === "sit" ? c.y - 112 * k : c.y - 130 * k;
       const isMe = c === player;
       pill(c.look.name || "You", c.x, top, isMe ? accent : "rgba(255,255,255,0.88)", isMe ? accentInk : "#22302a", c.bot && !c.host ? "bot" : null);
       if (c.timer) pill(c.timer, c.x, top - 24, "rgba(20,24,30,0.78)", "#ffffff", null);
+      if (c.say && c.say.until > performance.now()) talk.push({ c, x: c.x, y: top - (c.timer ? 50 : 26) });
+    }
+    // chat bubbles: older ones stay low, newer ones move up if they'd overlap
+    talk.sort((a, b) => a.c.say.until - b.c.say.until);
+    const placed = [];
+    for (const b of talk) {
+      const w = bubbleWidth(b.c.say.text);
+      let y = b.y;
+      for (let tries = 0; tries < 6; tries++) {
+        const hit = placed.find((r) => Math.abs(r.x - b.x) < (r.w + w) / 2 + 4 && Math.abs(r.y - y) < 32);
+        if (!hit) break;
+        y = hit.y - 34;
+      }
+      placed.push({ x: b.x, y, w });
+      bubble(b.c.say.text, b.x, y, b.c.say.until - performance.now());
     }
     if (near && !player.seated && !player.reserve) {
       pill(isTouch ? "Tap Sit to sit here" : "Press E to sit", near.x, near.y - 108 * near.k, accent, accentInk, null);
@@ -1106,9 +1214,8 @@ const World = (() => {
     if (player.seated || player.reserve || player.path.length) leaveSpot(player);
     const sp = 190 * dt * Math.min(1, len);
     const vx = (input.x / len) * sp, vy = (input.y / len) * sp * 0.8;
-    const stuck = blocked(player.x, player.y);
-    if (stuck || !blocked(player.x + vx, player.y)) player.x += vx;
-    if (stuck || !blocked(player.x, player.y + vy)) player.y += vy;
+    if (blocked(player.x, player.y)) { player.x += vx; player.y += vy; } // inside a wall: let them walk out
+    else moveBody(player, vx, vy);
     player.state = "walk";
     player.phase += dt * 11;
     if (Math.abs(vx) > 0.01) player.dir = vx > 0 ? 1 : -1;
@@ -1447,6 +1554,26 @@ const World = (() => {
         sitAt: player.seated ? player.sitAt || null : null,
         moving: player.state === "walk",
       };
+    },
+    // the table you're sitting at, and who else is sitting there
+    myTable() {
+      const st = player.seated;
+      if (!st) return null;
+      const t = st.table;
+      const mates = t.seats.map((x) => x.occupant).filter((c) => c && c !== player && c.seated && c.seated.table === t);
+      return {
+        id: t.id, kind: t.kind, label: st.label,
+        chat: t.kind !== "desk",
+        mates: mates.map((c) => ({ id: c.id, name: c.look.name, real: !!c.remote })),
+      };
+    },
+    tableOf(id) {
+      const c = chars.find((x) => x.id === id);
+      return c && c.seated ? c.seated.table.id : null;
+    },
+    say(id, text) {
+      const c = id === "me" ? player : chars.find((x) => x.id === id);
+      if (c) c.say = { text: String(text).replace(/\s+/g, " ").trim(), until: performance.now() + 6000 };
     },
     get zone() { return zone; },
     get realCount() { return remotes.size; },

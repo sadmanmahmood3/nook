@@ -36,6 +36,7 @@
       <div class="top-actions">
         <button type="button" class="pill-btn admin-btn" id="adminBtn" hidden>Admin</button>
         <button type="button" class="pill-btn" id="avatarBtn"><span class="wide">My </span>avatar</button>
+        <button type="button" class="pill-btn chat-btn" id="chatBtn" aria-expanded="false" aria-controls="chatPanel" hidden>Chat<span class="count" id="chatCount"></span></button>
         <button type="button" class="pill-btn" id="filesBtn" aria-expanded="false" aria-controls="filesPanel"><span class="wide">Shared </span>files<span class="count" id="filesCount"></span></button>
         <button type="button" class="pill-btn" id="panelBtn" aria-expanded="false" aria-controls="panel">Sounds<span class="wide"> &amp; tasks</span></button>
         <button type="button" class="pill-btn sound-toggle" id="soundToggle" aria-pressed="false" aria-label="Sound">
@@ -107,6 +108,22 @@
         </p>
         <ul class="files" id="filesList"></ul>
         <p class="fine">Allowed: PDF, Word, PowerPoint, Excel, images, text and zip files up to 10 MB. Share only material you have the right to share.</p>
+      </section>
+    </aside>
+
+    <aside class="panel chat-panel" id="chatPanel" hidden>
+      <div class="drawer-bar">
+        <span id="chatTitle">Table chat</span>
+        <button type="button" class="drawer-close" data-close="chatPanel" aria-label="Close chat">×</button>
+      </div>
+      <section class="block chat-block" aria-label="Table chat">
+        <p class="chat-with" id="chatWith"></p>
+        <ul class="chat-list" id="chatList" aria-live="polite"></ul>
+        <form class="task-form chat-form" id="chatForm">
+          <label class="sr" for="chatInput">Message</label>
+          <input id="chatInput" type="text" maxlength="300" placeholder="Message your table" autocomplete="off" enterkeyhint="send">
+          <button type="submit" class="btn small">Send</button>
+        </form>
       </section>
     </aside>
 
@@ -294,6 +311,7 @@
   <script src="world.js"></script>
   <script src="app.js"></script>
   <script src="share.js"></script>
+  <script src="chat.js"></script>
   <script src="controls.js"></script>
   <script src="admin.js"></script>
   <script src="online.js"></script>

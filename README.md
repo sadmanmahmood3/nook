@@ -6,15 +6,17 @@ A cozy virtual library for IUB students. Make an avatar, walk in, pick a desk, a
 - A 2D library drawn live on a canvas: a reading hall (12 desks), a glass-walled café corner (6 tables for two, its own sounds) and group tables (4 tables for six). The camera follows you and a mini map shows everyone
 - Your own avatar (name, skin tone, hairstyle including hijab, outfit)
 - Walk with arrow keys / WASD and press E to sit (computer), or use the joystick and Sit button (phone). Tapping also works
+- People can't walk through each other: you step around anyone standing in your way
+- Table chat: sit at a café table or group table to chat with the people at that table. Messages float above your head and aren't saved. The reading hall stays a quiet zone
 - Your timer shows above your head while you study
 - Share study material: PDFs, Word, slides, sheets, images, text, zip (up to 10 MB) or quick notes, with everyone or one person. People who shared something get a paper stack on their desk
 - Bot students and a wandering librarian (real students arrive in Phase 2)
-- Pomodoro timer: 15 / 25 / 50 / 90 minute focus sessions, short and long breaks, long break after 4 sessions
+- Pomodoro timer: 15 / 25 / 50 / 90 minute focus sessions, short and long breaks, long break after 4 sessions. Taking a break in the middle of a focus session keeps its time: after the break you resume where you stopped
 - Four scenes: Morning, Rainy, Night, Café change the light and the view outside
 - Ambient sound mixer: rain, birds, wind, crickets, café, hum. All sounds are generated with the Web Audio API, so there are no audio files
 - Today's task list
 - Daily focus minutes, sessions and day streak
-- Keyboard: arrows/WASD walk, `E` sit/stand, `Space` start/pause timer, `R` reset
+- Keyboard: arrows/WASD walk, `E` sit/stand, `Space` start/pause timer, `R` reset, `Enter` chat with your table
 - Saves settings, avatar, tasks and stats in the browser (localStorage)
 
 ## Run it
@@ -37,6 +39,7 @@ Open `index.html` in a browser. No install or build step needed.
 | `app.js` | Timer, scenes, avatar editor, sound mixer, tasks, stats |
 | `controls.js` | Keyboard, joystick and Sit button |
 | `share.js` | Sharing files and notes, the shared files panel and viewer |
+| `chat.js` | Table chat: the chat panel, messages and speech bubbles |
 
 ## Roadmap
 - [x] Phase 1: Library, avatars, timer, ambient sounds

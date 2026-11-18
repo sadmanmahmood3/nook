@@ -507,6 +507,28 @@ input[type="range"]::-moz-range-thumb {
 .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
+/* ---------- Table chat ---------- */
+.chat-panel { bottom: auto; max-height: calc(100% - 98px); }
+.chat-block { display: flex; flex-direction: column; min-height: 0; }
+.chat-with { margin: 0 0 10px; font-size: 12.5px; color: var(--ink-soft); }
+.chat-list {
+  list-style: none; margin: 0 0 10px; padding: 0 2px 0 0;
+  display: flex; flex-direction: column; gap: 8px;
+  height: 300px; overflow-y: auto; overscroll-behavior: contain;
+}
+.chat-list .sys { font-size: 12px; color: var(--ink-soft); text-align: center; padding: 4px 8px; }
+.msg { align-self: flex-start; max-width: 85%; display: flex; flex-direction: column; gap: 3px; }
+.msg.mine { align-self: flex-end; align-items: flex-end; }
+.msg-head { display: flex; gap: 6px; align-items: baseline; font-size: 11.5px; color: var(--ink-soft); }
+.msg-head strong { color: var(--ink); font-weight: 700; }
+.msg-text {
+  padding: 8px 12px; border-radius: 14px 14px 14px 4px;
+  background: var(--track); font-size: 14px; line-height: 1.35; overflow-wrap: anywhere;
+}
+.msg.mine .msg-text { border-radius: 14px 14px 4px 14px; background: var(--accent); color: var(--accent-ink); }
+.chat-form input:disabled { opacity: 0.6; }
+.chat-btn { border-color: var(--accent); }
+
 /* ---------- Responsive ---------- */
 /* ---------- Drawer header with a close button ---------- */
 .drawer-bar {
@@ -654,6 +676,8 @@ button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); ou
   .mix-row { grid-template-columns: 62px minmax(0, 1fr) 26px; }
   .mix-row label, .tasks .task-text { font-size: 13px; }
   .stats dd { font-size: 18px; }
+  .chat-list { height: 190px; }
+  .chat-panel { max-height: 62%; }
 
   .avatar-card { padding: 18px; border-radius: 22px; }
   .avatar-head h2 { font-size: 20px; }

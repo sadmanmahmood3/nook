@@ -263,6 +263,7 @@ const timer = {
   remaining: 25 * 60,
   done: 0, // focus sessions finished in this round (long break after 4)
   handle: null,
+  heldFocus: null, // seconds left on a focus session you left for a break
 };
 const ROUND = 4;
 
@@ -317,7 +318,8 @@ function start() {
   timer.endAt = Date.now() + timer.remaining * 1000;
   timer.running = true;
   timer.handle = setInterval(tick, 250);
-  $("status").textContent = timer.mode === "focus" ? "Focusing. Phone face down." : "On a break. Stretch, drink water.";
+  $("status").textContent = timer.mode === "focus" ? "Focusing. Phone face down."
+    : timer.heldFocus ? `On a break. Your focus is paused at ${fmt(timer.heldFocus)}.` : "On a break. Stretch, drink water.";
   if (timer.mode === "focus" && !World.seated) toast("Tip: sit at a desk so others can see you studying.");
   keepAwake(true);
   renderTimer();
@@ -334,10 +336,36 @@ function pause() {
   announceTimer();
 }
 
-function setMode(mode) {
-  if (timer.running) { clearInterval(timer.handle); timer.running = false; keepAwake(false); }
+// switch between Focus / Short break / Long break.
+// Leaving an unfinished focus session for a break keeps its time; coming back
+// to Focus picks up from there instead of starting over.
+function setMode(mode, { hold = true } = {}) {
+  if (timer.running) {
+    timer.remaining = Math.max(0, Math.ceil((timer.endAt - Date.now()) / 1000));
+    clearInterval(timer.handle); timer.running = false; keepAwake(false);
+  }
+  const leavingFocus = timer.mode === "focus" && mode !== "focus";
+  if (leavingFocus && hold && timer.remaining > 0 && timer.remaining < lengthOf("focus")) {
+    timer.heldFocus = timer.remaining;
+    $("status").textContent = `Focus paused at ${fmt(timer.heldFocus)}. Press Start for your break.`;
+  }
   timer.mode = mode;
-  timer.remaining = lengthOf(mode);
+  if (mode === "focus" && timer.heldFocus) {
+    timer.remaining = timer.heldFocus;
+    timer.heldFocus = null;
+    $("status").textContent = `Back to focus. ${fmt(timer.remaining)} left. Press Resume.`;
+  } else {
+    timer.remaining = lengthOf(mode);
+  }
+  renderTimer();
+  announceTimer();
+}
+
+// start this mode again from its full length (Reset, R key, a new focus length)
+function resetMode() {
+  if (timer.mode === "focus") timer.heldFocus = null;
+  if (timer.running) { clearInterval(timer.handle); timer.running = false; keepAwake(false); }
+  timer.remaining = lengthOf(timer.mode);
   renderTimer();
   announceTimer();
 }
@@ -362,24 +390,29 @@ function finish(completed) {
     if (was === "long") timer.done = 0;
     next = "focus";
   }
-  setMode(next);
+  // a finished or skipped focus session isn't held for later
+  setMode(next, { hold: false });
+  const resumed = was !== "focus" && timer.remaining < lengthOf("focus");
   if (completed) {
     $("status").textContent = was === "focus"
       ? (next === "long" ? "Four sessions done. Take a proper long break." : "Session done. Take a short break.")
-      : "Break’s over. Ready for the next one?";
-  } else {
+      : resumed ? `Break’s over. ${fmt(timer.remaining)} of focus left. Press Resume.` : "Break’s over. Ready for the next one?";
+  } else if (!resumed) {
     $("status").textContent = "Skipped.";
   }
 }
 
 $("startBtn").addEventListener("click", () => (timer.running ? pause() : start()));
-$("resetBtn").addEventListener("click", () => { setMode(timer.mode); $("status").textContent = "Reset."; });
+$("resetBtn").addEventListener("click", () => { resetMode(); $("status").textContent = "Reset."; });
 $("skipBtn").addEventListener("click", () => finish(false));
-document.querySelectorAll(".mode").forEach((b) => b.addEventListener("click", () => setMode(b.dataset.mode)));
+document.querySelectorAll(".mode").forEach((b) => b.addEventListener("click", () => {
+  if (b.dataset.mode !== timer.mode) setMode(b.dataset.mode); // tapping the mode you're in does nothing
+}));
 document.querySelectorAll(".len").forEach((b) => b.addEventListener("click", () => {
   settings.focusLen = Number(b.dataset.len);
   store.set("settings", settings);
-  setMode(timer.mode);
+  timer.heldFocus = null; // a new length starts a fresh session
+  resetMode();
 }));
 document.querySelectorAll(".chip").forEach((b) => b.addEventListener("click", () => setScene(b.dataset.scene)));
 
@@ -392,8 +425,10 @@ document.addEventListener("keydown", (e) => {
     return;
   }
   if (e.code === "Space") { e.preventDefault(); timer.running ? pause() : start(); }
-  if (e.key === "r" || e.key === "R") setMode(timer.mode);
+  if (e.key === "r" || e.key === "R") resetMode();
 });
+
+World.on("blockedWay", () => toast("Someone’s in the way. Walk around them or pick another spot."));
 
 // ---------- leaving and coming back ----------
 $("leaveBtn").addEventListener("click", () => {
